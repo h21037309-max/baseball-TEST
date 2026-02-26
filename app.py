@@ -33,14 +33,12 @@ if not os.path.exists(USER_FILE):
 user_df=pd.read_csv(USER_FILE)
 
 
+
 # ======================
 # 登入 / 註冊
 # ======================
 
 mode=st.sidebar.radio("帳號",["登入","註冊"])
-
-
-# ========= 註冊 =========
 
 if mode=="註冊":
 
@@ -113,7 +111,7 @@ IS_ADMIN=login_name in ADMINS
 columns=[
 
 "紀錄ID","日期","球隊","背號","姓名",
-"對戰球隊","投手",
+"對戰球隊",
 "打席","打數","得分","打點","安打",
 "1B","2B","3B","HR",
 "BB","SF","SH","SB"
@@ -128,13 +126,11 @@ else:
 
     df=pd.DataFrame(columns=columns)
 
-
 for c in columns:
 
     if c not in df.columns:
 
         df[c]=0
-
 
 df["姓名"]=df["姓名"].astype(str).str.strip()
 
@@ -153,8 +149,6 @@ if IS_ADMIN:
     user_df=user_df.dropna(subset=["帳號","姓名"])
 
     user_df["姓名"]=user_df["姓名"].astype(str).str.strip()
-
-    user_df=user_df[user_df["姓名"]!=""]
 
     user_df["顯示"]=user_df["帳號"].astype(str)+"｜"+user_df["姓名"]
 
@@ -176,9 +170,6 @@ if IS_ADMIN:
 
     number_default=int(info["背號"])
 
-
-
-    # ⭐ 全部排行榜
 
     if not df.empty:
 
@@ -202,17 +193,22 @@ if IS_ADMIN:
 
         )
 
-        summary["打擊率"]=(summary["安打"]/summary["打數"]).round(3).fillna(0)
+        AB=summary["打數"]
+        H=summary["安打"]
+        BB=summary["BB"]
+        SF=summary["SF"]
+
+        summary["打擊率"]=(H/AB).round(3).fillna(0)
 
         summary["上壘率"]=(
-        (summary["安打"]+summary["BB"])/
-        (summary["打數"]+summary["BB"]+summary["SF"])
+        (H+BB)/(AB+BB+SF)
         ).round(3).fillna(0)
 
-        summary["長打率"]=(TB/summary["打數"]).round(3).fillna(0)
+        summary["長打率"]=(TB/AB).round(3).fillna(0)
 
         summary["OPS"]=(
-        summary["上壘率"]+summary["長打率"]
+        summary["上壘率"]+
+        summary["長打率"]
         ).round(3)
 
         st.dataframe(
@@ -233,19 +229,9 @@ else:
 
 st.header("📊 個人累積統計")
 
-player_df=df[
+player_df=df[df["姓名"]==player_name]
 
-df["姓名"].astype(str).str.strip()
-==player_name
-
-]
-
-
-if player_df.empty:
-
-    st.info("尚無資料")
-
-else:
+if not player_df.empty:
 
     total=player_df.sum(numeric_only=True)
 
@@ -265,9 +251,7 @@ else:
 
     AVG=round(H/AB,3) if AB>0 else 0
 
-    OBP=round(
-    (H+BB)/(AB+BB+SF)
-    ,3) if (AB+BB+SF)>0 else 0
+    OBP=round((H+BB)/(AB+BB+SF),3) if (AB+BB+SF)>0 else 0
 
     SLG=round(TB/AB,3) if AB>0 else 0
 
@@ -275,7 +259,7 @@ else:
 
     c1,c2,c3,c4,c5,c6=st.columns(6)
 
-    c1.metric("打數",int(total["打數"]))
+    c1.metric("打席",int(total["打席"]))
     c2.metric("安打",int(H))
     c3.metric("打擊率",AVG)
     c4.metric("上壘率",OBP)
@@ -290,12 +274,13 @@ else:
 
 st.header("新增比賽紀錄")
 
+game_date=st.date_input("比賽日期",datetime.today())
+
 c1,c2,c3=st.columns(3)
 
 with c1:
 
     opponent=st.text_input("對戰球隊")
-    pitcher=st.selectbox("投手",["左投","右投"])
 
 with c2:
 
@@ -303,7 +288,6 @@ with c2:
     AB=st.number_input("打數",0)
     R=st.number_input("得分",0)
     RBI=st.number_input("打點",0)
-    H=st.number_input("安打",0)
 
 with c3:
 
@@ -316,6 +300,8 @@ with c3:
     SH=st.number_input("SH",0)
     SB=st.number_input("SB",0)
 
+# ⭐ 安打自動加總（不顯示提示）
+H=single+double+triple+HR
 
 
 if st.button("新增紀錄"):
@@ -323,15 +309,11 @@ if st.button("新增紀錄"):
     new=pd.DataFrame([{
 
     "紀錄ID":str(uuid.uuid4()),
-
-    "日期":datetime.now().strftime("%Y-%m-%d"),
-
+    "日期":game_date.strftime("%Y-%m-%d"),
     "球隊":team_default,
     "背號":number_default,
     "姓名":player_name,
-
     "對戰球隊":opponent,
-    "投手":pitcher,
 
     "打席":PA,
     "打數":AB,
@@ -362,30 +344,33 @@ if st.button("新增紀錄"):
 
 
 # ======================
-# 單場紀錄（⭐修復）
+# 單場紀錄
 # ======================
 
 st.header("📅 單場比賽紀錄")
 
-if player_df.empty:
+search_date=st.date_input("查詢日期(空=全部)",None)
 
-    st.info("目前沒有比賽紀錄")
+show_df=player_df
 
-else:
+if search_date:
 
-    show_df=player_df.sort_values("日期",ascending=False)
+    show_df=show_df[
+    show_df["日期"]==
+    search_date.strftime("%Y-%m-%d")
+    ]
 
-    for _,row in show_df.iterrows():
+for _,row in show_df.sort_values("日期",ascending=False).iterrows():
 
-        colA,colB=st.columns([9,1])
+    colA,colB=st.columns([9,1])
 
-        with colA:
+    with colA:
 
-            st.markdown(f"""
+        st.markdown(f"""
 
 ### 📅 {row['日期']} ｜ {row['球隊']} #{int(row['背號'])} {row['姓名']}
 
-vs {row['對戰球隊']} ｜ {row['投手']}
+vs {row['對戰球隊']}
 
 PA {int(row['打席'])} ｜ AB {int(row['打數'])} ｜ H {int(row['安打'])}
 
@@ -397,17 +382,15 @@ BB {int(row['BB'])} ｜ SF {int(row['SF'])} ｜ SH {int(row['SH'])} ｜ SB {int(
 
 """)
 
-        with colB:
+    with colB:
 
-            if st.button("❌",key=row["紀錄ID"]):
+        if st.button("❌",key=row["紀錄ID"]):
 
-                df=df[df["紀錄ID"]!=row["紀錄ID"]]
+            df=df[df["紀錄ID"]!=row["紀錄ID"]]
 
-                df.to_csv(DATA_FILE,index=False)
+            df.to_csv(DATA_FILE,index=False)
 
-                st.success("刪除成功")
-
-                st.rerun()
+            st.rerun()
 
 
 
@@ -458,4 +441,3 @@ if IS_ADMIN:
             st.success("帳號與全部紀錄已刪除")
 
             st.rerun()
-
