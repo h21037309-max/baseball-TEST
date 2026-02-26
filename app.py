@@ -43,12 +43,6 @@ if "000" not in user_df["帳號"].astype(str).values:
 
     new_admin=pd.DataFrame([{
 
-    "帳號":"000",
-    "密碼":"000",
-    "姓名":"郭子聖",
-    "球隊":"ADMIN",
-    "背號":0
-
     }])
 
     user_df=pd.concat(
@@ -585,4 +579,5 @@ if IS_ADMIN:
 
 
             st.rerun()
+
 
