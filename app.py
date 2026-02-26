@@ -530,7 +530,7 @@ BB {int(row['BB'])} ｜ SF {int(row['SF'])} ｜ SH {int(row['SH'])} ｜ SB {int(
 
 
 # ======================
-# ADMIN 帳號管理
+# ⭐ ADMIN 帳號管理（修正版）
 # ======================
 
 if IS_ADMIN:
@@ -538,6 +538,14 @@ if IS_ADMIN:
     st.divider()
 
     st.header("👤 帳號管理")
+
+    # ⭐ 清除壞資料
+    user_df=user_df.dropna(subset=["帳號"])
+
+    user_df["帳號"]=user_df["帳號"].astype(str).str.strip()
+
+    user_df=user_df[user_df["帳號"]!=""]
+
 
     st.dataframe(
 
@@ -547,37 +555,47 @@ if IS_ADMIN:
 
     )
 
+
     delete_acc=st.selectbox(
 
     "選擇刪除帳號",
 
-    user_df["帳號"]
+    user_df["帳號"].tolist(),
+
+    key="delete_user"
 
     )
 
+
     if st.button("❌ 刪除帳號"):
 
-        if delete_acc!="admin":
+        if delete_acc=="admin":
+
+            st.warning("不能刪admin")
+
+        else:
 
             delete_name=user_df[
+
             user_df["帳號"]==delete_acc
+
             ].iloc[0]["姓名"]
 
+
+            # ⭐刪users
             user_df=user_df[
             user_df["帳號"]!=delete_acc
             ]
 
             user_df.to_csv(USER_FILE,index=False)
 
+
+            # ⭐刪比賽資料
             df=df[df["姓名"]!=delete_name]
 
             df.to_csv(DATA_FILE,index=False)
 
-            st.success("帳號與全部紀錄已刪除")
+
+            st.success(f"{delete_name} 已刪除")
 
             st.rerun()
-
-
-            st.rerun()
-
-
