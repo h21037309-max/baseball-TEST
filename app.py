@@ -168,61 +168,50 @@ df=df.fillna(0)
 
 
 # ======================
-# ⭐ ADMIN 球員中心（完全穩定版）
+# ⭐ ADMIN 球員中心（超穩定修正版）
 # ======================
 
 if IS_ADMIN:
 
     st.header("🏆 球員管理中心")
 
-    # ⭐ 清理姓名資料（超重要）
+    # ⭐ 清理 users.csv 壞資料
+    user_df=user_df.dropna(subset=["帳號","姓名"])
+
     user_df["姓名"]=user_df["姓名"].astype(str).str.strip()
 
-    # ⭐ 去除空值
-    player_list=sorted(
-
-        user_df["姓名"]
-        .dropna()
-        .unique()
-        .tolist()
-
-    )
-
-    # ⭐ 沒人防炸
-    if len(player_list)==0:
-
-        st.warning("沒有球員")
-
-        st.stop()
+    user_df=user_df[user_df["姓名"]!=""]
 
 
-    # ⭐ 選擇球員
-    select_player=st.selectbox(
+    # ⭐ 用帳號＋姓名顯示（最安全）
+    user_df["顯示名稱"]=user_df["帳號"].astype(str)+"｜"+user_df["姓名"]
+
+
+    player_select=st.selectbox(
 
         "選擇球員",
 
-        player_list,
+        user_df["顯示名稱"].tolist(),
 
-        key="admin_player_select"
+        key="admin_select_player"
 
     )
 
-    player_name=str(select_player).strip()
+
+    # ⭐ 拆回帳號
+    select_acc=player_select.split("｜")[0]
 
 
-    # ⭐ 找球員資料
     info=user_df[
 
-    user_df["姓名"].astype(str).str.strip()
-    ==player_name
+        user_df["帳號"]==select_acc
 
     ]
 
 
-    # ⭐ 找不到防炸
     if info.empty:
 
-        st.error("找不到球員資料")
+        st.error("找不到球員")
 
         st.stop()
 
@@ -230,11 +219,11 @@ if IS_ADMIN:
     info=info.iloc[0]
 
 
+    player_name=str(info["姓名"]).strip()
+
     team_default=info["球隊"]
 
     number_default=int(info["背號"])
-
-
 
     # ======================
     # ⭐ 全部球員排行榜
@@ -599,3 +588,4 @@ if IS_ADMIN:
             st.success(f"{delete_name} 已刪除")
 
             st.rerun()
+
