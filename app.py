@@ -275,7 +275,7 @@ else:
 
     c1,c2,c3,c4,c5,c6=st.columns(6)
 
-    c1.metric("打席",int(total["打席"]))
+    c1.metric("打數",int(total["打數"]))
     c2.metric("安打",int(H))
     c3.metric("打擊率",AVG)
     c4.metric("上壘率",OBP)
@@ -458,3 +458,4 @@ if IS_ADMIN:
             st.success("帳號與全部紀錄已刪除")
 
             st.rerun()
+
