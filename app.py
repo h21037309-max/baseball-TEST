@@ -238,23 +238,19 @@ else:
     SLG=round(TB/AB,3) if AB>0 else 0
     OPS=round(OBP+SLG,3)
 
-    st.markdown(f"""
-<div style="display:flex;gap:40px;font-size:20px;font-weight:bold">
+    cols = st.columns(6)
 
-<div>打席<br>{int(total["打席"])}</div>
+stats = [
+("打席", int(total["打席"])),
+("安打", int(H)),
+("打擊率", AVG),
+("上壘率", OBP),
+("長打率", SLG),
+("OPS", OPS)
+]
 
-<div>安打<br>{int(H)}</div>
-
-<div>打擊率<br>{AVG}</div>
-
-<div>上壘率<br>{OBP}</div>
-
-<div>長打率<br>{SLG}</div>
-
-<div>OPS<br>{OPS}</div>
-
-</div>
-""", unsafe_allow_html=True)
+for col,(name,value) in zip(cols,stats):
+    col.metric(name,value)
 # ======================
 # 新增紀錄
 # ======================
