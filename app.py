@@ -1,73 +1,71 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import os
+import sqlite3
 import uuid
-import requests
-import base64
 
 st.set_page_config(layout="wide")
 
 st.title("⚾打擊數據系統")
 
-DATA_FILE="data.csv"
-USER_FILE="users.csv"
-
 ADMINS=["洪仲平"]
 
 # ======================
-# GitHub設定
+# SQLite資料庫
 # ======================
 
-GITHUB_TOKEN = st.secrets["github_token"]
-REPO = "你的GitHub帳號/你的repo"
-BRANCH = "main"
+conn = sqlite3.connect("database.db", check_same_thread=False)
+cursor = conn.cursor()
 
-def upload_to_github(file_path):
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users(
+帳號 TEXT PRIMARY KEY,
+密碼 TEXT,
+姓名 TEXT,
+球隊 TEXT,
+背號 INTEGER
+)
+""")
 
-    with open(file_path,"rb") as f:
-        content = base64.b64encode(f.read()).decode()
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS stats(
+紀錄ID TEXT PRIMARY KEY,
+日期 TEXT,
+球隊 TEXT,
+背號 INTEGER,
+姓名 TEXT,
+對戰球隊 TEXT,
+打席 INTEGER,
+打數 INTEGER,
+得分 INTEGER,
+打點 INTEGER,
+安打 INTEGER,
+1B INTEGER,
+2B INTEGER,
+3B INTEGER,
+HR INTEGER,
+BB INTEGER,
+SF INTEGER,
+SH INTEGER,
+SB INTEGER
+)
+""")
 
-    url = f"https://api.github.com/repos/{REPO}/contents/{file_path}"
-
-    headers={"Authorization":f"token {GITHUB_TOKEN}"}
-
-    r=requests.get(url,headers=headers)
-
-    sha=None
-    if r.status_code==200:
-        sha=r.json()["sha"]
-
-    data={
-        "message":f"update {file_path}",
-        "content":content,
-        "branch":BRANCH
-    }
-
-    if sha:
-        data["sha"]=sha
-
-    requests.put(url,headers=headers,json=data)
-
+conn.commit()
 
 # ======================
-# users 初始化
+# admin初始化
 # ======================
 
-if not os.path.exists(USER_FILE):
+cursor.execute("SELECT * FROM users WHERE 帳號='admin'")
+if cursor.fetchone() is None:
 
-    pd.DataFrame([{
-    "帳號":"admin",
-    "密碼":"admin123",
-    "姓名":"洪仲平",
-    "球隊":"ADMIN",
-    "背號":0
-    }]).to_csv(USER_FILE,index=False)
+    cursor.execute(
+    "INSERT INTO users VALUES (?,?,?,?,?)",
+    ("admin","admin123","洪仲平","ADMIN",0)
+    )
 
-    upload_to_github(USER_FILE)
-
-user_df=pd.read_csv(USER_FILE)
-
+    conn.commit()
 
 # ======================
 # 登入 / 註冊
@@ -87,30 +85,26 @@ if mode=="註冊":
 
     if st.button("建立帳號"):
 
-        if acc in user_df["帳號"].astype(str).values:
+        cursor.execute(
+        "SELECT * FROM users WHERE 帳號=?",(acc,)
+        )
+
+        if cursor.fetchone():
 
             st.error("帳號存在")
 
         else:
 
-            new=pd.DataFrame([{
-            "帳號":acc,
-            "密碼":pw,
-            "姓名":real.strip(),
-            "球隊":team,
-            "背號":num
-            }])
+            cursor.execute(
+            "INSERT INTO users VALUES (?,?,?,?,?)",
+            (acc,pw,real.strip(),team,num)
+            )
 
-            user_df=pd.concat([user_df,new],ignore_index=True)
+            conn.commit()
 
-            user_df.to_csv(USER_FILE,index=False)
-
-            upload_to_github(USER_FILE)
-
-            st.success("✅ 註冊成功")
+            st.success("註冊成功")
 
     st.stop()
-
 
 # ======================
 # 登入
@@ -119,79 +113,52 @@ if mode=="註冊":
 username=st.sidebar.text_input("帳號")
 password=st.sidebar.text_input("密碼",type="password")
 
-login=user_df[
-(user_df["帳號"].astype(str)==username)&
-(user_df["密碼"].astype(str)==password)
-]
+cursor.execute(
+"SELECT * FROM users WHERE 帳號=? AND 密碼=?",
+(username,password)
+)
 
-if login.empty:
+login=cursor.fetchone()
+
+if not login:
 
     st.warning("請登入")
     st.stop()
 
-login_name=str(login.iloc[0]["姓名"]).strip()
-
-team_default=login.iloc[0]["球隊"]
-number_default=int(login.iloc[0]["背號"])
+login_name=login[2]
+team_default=login[3]
+number_default=login[4]
 
 IS_ADMIN=login_name in ADMINS
 
+# ======================
+# 讀取數據
+# ======================
+
+df=pd.read_sql("SELECT * FROM stats",conn)
 
 # ======================
-# CSV
-# ======================
-
-columns=[
-
-"紀錄ID","日期","球隊","背號","姓名",
-"對戰球隊",
-"打席","打數","得分","打點","安打",
-"1B","2B","3B","HR",
-"BB","SF","SH","SB"
-
-]
-
-if os.path.exists(DATA_FILE):
-
-    df=pd.read_csv(DATA_FILE)
-
-else:
-
-    df=pd.DataFrame(columns=columns)
-
-for c in columns:
-
-    if c not in df.columns:
-
-        df[c]=0
-
-df["姓名"]=df["姓名"].astype(str).str.strip()
-
-df=df.fillna(0)
-
-
-# ======================
-# ADMIN 球員中心
+# ADMIN球員中心
 # ======================
 
 if IS_ADMIN:
 
     st.header("🏆 球員管理中心")
 
-    user_df=user_df.dropna(subset=["帳號","姓名"])
+    user_df=pd.read_sql("SELECT * FROM users",conn)
 
-    user_df["姓名"]=user_df["姓名"].astype(str).str.strip()
+    user_df["顯示"]=user_df["帳號"]+"｜"+user_df["姓名"]
 
-    user_df["顯示"]=user_df["帳號"].astype(str)+"｜"+user_df["姓名"]
-
-    select_player=st.selectbox("選擇球員",user_df["顯示"].tolist())
+    select_player=st.selectbox(
+    "選擇球員",
+    user_df["顯示"]
+    )
 
     select_acc=select_player.split("｜")[0]
 
     info=user_df[user_df["帳號"]==select_acc].iloc[0]
 
-    player_name=str(info["姓名"]).strip()
-
+    player_name=info["姓名"]
     team_default=info["球隊"]
     number_default=int(info["背號"])
 
@@ -231,15 +198,15 @@ if IS_ADMIN:
 
         st.dataframe(
         summary.sort_values("OPS",ascending=False),
-        use_container_width=True)
+        use_container_width=True
+        )
 
 else:
 
     player_name=login_name
 
-
 # ======================
-# 個人累積統計
+# 個人累積
 # ======================
 
 st.header("📊 個人累積統計")
@@ -276,7 +243,6 @@ if not player_df.empty:
     c5.metric("長打率",SLG)
     c6.metric("OPS",OPS)
 
-
 # ======================
 # 新增紀錄
 # ======================
@@ -310,43 +276,35 @@ H=single+double+triple+HR
 
 if st.button("新增紀錄"):
 
-    new=pd.DataFrame([{
+    cursor.execute("""
+    INSERT INTO stats VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """,(
+    str(uuid.uuid4()),
+    game_date.strftime("%Y-%m-%d"),
+    team_default,
+    number_default,
+    player_name,
+    opponent,
+    PA,
+    AB,
+    R,
+    RBI,
+    H,
+    single,
+    double,
+    triple,
+    HR,
+    BB,
+    SF,
+    SH,
+    SB
+    ))
 
-    "紀錄ID":str(uuid.uuid4()),
-    "日期":game_date.strftime("%Y-%m-%d"),
-    "球隊":team_default,
-    "背號":number_default,
-    "姓名":player_name,
-    "對戰球隊":opponent,
-
-    "打席":PA,
-    "打數":AB,
-    "得分":R,
-    "打點":RBI,
-    "安打":H,
-
-    "1B":single,
-    "2B":double,
-    "3B":triple,
-    "HR":HR,
-
-    "BB":BB,
-    "SF":SF,
-    "SH":SH,
-    "SB":SB
-
-    }])
-
-    df=pd.concat([df,new],ignore_index=True)
-
-    df.to_csv(DATA_FILE,index=False)
-
-    upload_to_github(DATA_FILE)
+    conn.commit()
 
     st.success("新增成功")
 
     st.rerun()
-
 
 # ======================
 # 單場紀錄
@@ -354,54 +312,36 @@ if st.button("新增紀錄"):
 
 st.header("📅 單場比賽紀錄")
 
-search_date=st.date_input("查詢日期(空=全部)",None)
-
-show_df=player_df
-
-if search_date:
-
-    show_df=show_df[
-    show_df["日期"]==
-    search_date.strftime("%Y-%m-%d")
-    ]
-
-for _,row in show_df.sort_values("日期",ascending=False).iterrows():
+for _,row in player_df.sort_values("日期",ascending=False).iterrows():
 
     colA,colB=st.columns([9,1])
 
     with colA:
 
         st.markdown(f"""
-
 ### 📅 {row['日期']} ｜ {row['球隊']} #{int(row['背號'])} {row['姓名']}
-
 vs {row['對戰球隊']}
-
 PA {int(row['打席'])} ｜ AB {int(row['打數'])} ｜ H {int(row['安打'])}
-
 1B {int(row['1B'])} ｜ 2B {int(row['2B'])} ｜ 3B {int(row['3B'])} ｜ HR {int(row['HR'])}
-
 BB {int(row['BB'])} ｜ SF {int(row['SF'])} ｜ SH {int(row['SH'])} ｜ SB {int(row['SB'])}
-
 ---
-
 """)
 
     with colB:
 
         if st.button("❌",key=row["紀錄ID"]):
 
-            df=df[df["紀錄ID"]!=row["紀錄ID"]]
+            cursor.execute(
+            "DELETE FROM stats WHERE 紀錄ID=?",
+            (row["紀錄ID"],)
+            )
 
-            df.to_csv(DATA_FILE,index=False)
-
-            upload_to_github(DATA_FILE)
+            conn.commit()
 
             st.rerun()
 
-
 # ======================
-# ADMIN 帳號管理
+# 帳號管理
 # ======================
 
 if IS_ADMIN:
@@ -410,6 +350,8 @@ if IS_ADMIN:
 
     st.header("👤 帳號管理")
 
+    user_df=pd.read_sql("SELECT * FROM users",conn)
+
     st.dataframe(
     user_df[["帳號","姓名","球隊","背號"]],
     use_container_width=True
@@ -417,32 +359,33 @@ if IS_ADMIN:
 
     delete_acc=st.selectbox(
     "選擇刪除帳號",
-    user_df["帳號"].tolist()
+    user_df["帳號"]
     )
 
     if st.button("❌ 刪除帳號"):
 
         if delete_acc!="admin":
 
-            delete_name=user_df[
-            user_df["帳號"]==delete_acc
-            ].iloc[0]["姓名"]
+            cursor.execute(
+            "SELECT 姓名 FROM users WHERE 帳號=?",
+            (delete_acc,)
+            )
 
-            user_df=user_df[
-            user_df["帳號"]!=delete_acc
-            ]
+            delete_name=cursor.fetchone()[0]
 
-            user_df.to_csv(USER_FILE,index=False)
+            cursor.execute(
+            "DELETE FROM users WHERE 帳號=?",
+            (delete_acc,)
+            )
 
-            upload_to_github(USER_FILE)
+            cursor.execute(
+            "DELETE FROM stats WHERE 姓名=?",
+            (delete_name,)
+            )
 
-            df=df[df["姓名"]!=delete_name]
+            conn.commit()
 
-            df.to_csv(DATA_FILE,index=False)
-
-            upload_to_github(DATA_FILE)
-
-            st.success("帳號與全部紀錄已刪除")
+            st.success("帳號與紀錄已刪除")
 
             st.rerun()
 
