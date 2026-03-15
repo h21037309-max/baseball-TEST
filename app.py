@@ -14,7 +14,7 @@ ADMINS=["洪仲平"]
 # SQLite資料庫
 # ======================
 
-conn = sqlite3.connect("database.db", check_same_thread=False)
+conn = sqlite3.connect("database.db",check_same_thread=False)
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -40,9 +40,9 @@ CREATE TABLE IF NOT EXISTS stats(
 得分 INTEGER,
 打點 INTEGER,
 安打 INTEGER,
-1B INTEGER,
-2B INTEGER,
-3B INTEGER,
+single INTEGER,
+double INTEGER,
+triple INTEGER,
 HR INTEGER,
 BB INTEGER,
 SF INTEGER,
@@ -67,6 +67,8 @@ if cursor.fetchone() is None:
 
     conn.commit()
 
+user_df=pd.read_sql("SELECT * FROM users",conn)
+
 # ======================
 # 登入 / 註冊
 # ======================
@@ -85,11 +87,7 @@ if mode=="註冊":
 
     if st.button("建立帳號"):
 
-        cursor.execute(
-        "SELECT * FROM users WHERE 帳號=?",(acc,)
-        )
-
-        if cursor.fetchone():
+        if acc in user_df["帳號"].astype(str).values:
 
             st.error("帳號存在")
 
@@ -113,21 +111,20 @@ if mode=="註冊":
 username=st.sidebar.text_input("帳號")
 password=st.sidebar.text_input("密碼",type="password")
 
-cursor.execute(
-"SELECT * FROM users WHERE 帳號=? AND 密碼=?",
-(username,password)
-)
+login=user_df[
+(user_df["帳號"].astype(str)==username)&
+(user_df["密碼"].astype(str)==password)
+]
 
-login=cursor.fetchone()
-
-if not login:
+if login.empty:
 
     st.warning("請登入")
     st.stop()
 
-login_name=login[2]
-team_default=login[3]
-number_default=login[4]
+login_name=str(login.iloc[0]["姓名"]).strip()
+
+team_default=login.iloc[0]["球隊"]
+number_default=int(login.iloc[0]["背號"])
 
 IS_ADMIN=login_name in ADMINS
 
@@ -137,28 +134,33 @@ IS_ADMIN=login_name in ADMINS
 
 df=pd.read_sql("SELECT * FROM stats",conn)
 
+df=df.fillna(0)
+
 # ======================
-# ADMIN球員中心
+# ADMIN 球員中心
 # ======================
 
 if IS_ADMIN:
 
     st.header("🏆 球員管理中心")
 
-    user_df=pd.read_sql("SELECT * FROM users",conn)
+    user_df=user_df.dropna(subset=["帳號","姓名"])
 
-    user_df["顯示"]=user_df["帳號"]+"｜"+user_df["姓名"]
+    user_df["姓名"]=user_df["姓名"].astype(str).str.strip()
+
+    user_df["顯示"]=user_df["帳號"].astype(str)+"｜"+user_df["姓名"]
 
     select_player=st.selectbox(
     "選擇球員",
-    user_df["顯示"]
+    user_df["顯示"].tolist()
     )
 
     select_acc=select_player.split("｜")[0]
 
     info=user_df[user_df["帳號"]==select_acc].iloc[0]
 
-    player_name=info["姓名"]
+    player_name=str(info["姓名"]).strip()
+
     team_default=info["球隊"]
     number_default=int(info["背號"])
 
@@ -172,9 +174,9 @@ if IS_ADMIN:
         ).sum(numeric_only=True)
 
         TB=(
-        summary["1B"]
-        +summary["2B"]*2
-        +summary["3B"]*3
+        summary["single"]
+        +summary["double"]*2
+        +summary["triple"]*3
         +summary["HR"]*4
         )
 
@@ -198,15 +200,14 @@ if IS_ADMIN:
 
         st.dataframe(
         summary.sort_values("OPS",ascending=False),
-        use_container_width=True
-        )
+        use_container_width=True)
 
 else:
 
     player_name=login_name
 
 # ======================
-# 個人累積
+# 個人累積統計
 # ======================
 
 st.header("📊 個人累積統計")
@@ -223,15 +224,18 @@ if not player_df.empty:
     SF=total["SF"]
 
     TB=(
-    total["1B"]
-    +total["2B"]*2
-    +total["3B"]*3
+    total["single"]
+    +total["double"]*2
+    +total["triple"]*3
     +total["HR"]*4
     )
 
     AVG=round(H/AB,3) if AB>0 else 0
+
     OBP=round((H+BB)/(AB+BB+SF),3) if (AB+BB+SF)>0 else 0
+
     SLG=round(TB/AB,3) if AB>0 else 0
+
     OPS=round(OBP+SLG,3)
 
     c1,c2,c3,c4,c5,c6=st.columns(6)
@@ -254,15 +258,18 @@ game_date=st.date_input("比賽日期",datetime.today())
 c1,c2,c3=st.columns(3)
 
 with c1:
+
     opponent=st.text_input("對戰球隊")
 
 with c2:
+
     PA=st.number_input("打席",0)
     AB=st.number_input("打數",0)
     R=st.number_input("得分",0)
     RBI=st.number_input("打點",0)
 
 with c3:
+
     single=st.number_input("1B",0)
     double=st.number_input("2B",0)
     triple=st.number_input("3B",0)
@@ -312,7 +319,18 @@ if st.button("新增紀錄"):
 
 st.header("📅 單場比賽紀錄")
 
-for _,row in player_df.sort_values("日期",ascending=False).iterrows():
+search_date=st.date_input("查詢日期(空=全部)",None)
+
+show_df=player_df
+
+if search_date:
+
+    show_df=show_df[
+    show_df["日期"]==
+    search_date.strftime("%Y-%m-%d")
+    ]
+
+for _,row in show_df.sort_values("日期",ascending=False).iterrows():
 
     colA,colB=st.columns([9,1])
 
@@ -320,10 +338,15 @@ for _,row in player_df.sort_values("日期",ascending=False).iterrows():
 
         st.markdown(f"""
 ### 📅 {row['日期']} ｜ {row['球隊']} #{int(row['背號'])} {row['姓名']}
+
 vs {row['對戰球隊']}
+
 PA {int(row['打席'])} ｜ AB {int(row['打數'])} ｜ H {int(row['安打'])}
-1B {int(row['1B'])} ｜ 2B {int(row['2B'])} ｜ 3B {int(row['3B'])} ｜ HR {int(row['HR'])}
+
+1B {int(row['single'])} ｜ 2B {int(row['double'])} ｜ 3B {int(row['triple'])} ｜ HR {int(row['HR'])}
+
 BB {int(row['BB'])} ｜ SF {int(row['SF'])} ｜ SH {int(row['SH'])} ｜ SB {int(row['SB'])}
+
 ---
 """)
 
@@ -341,7 +364,7 @@ BB {int(row['BB'])} ｜ SF {int(row['SF'])} ｜ SH {int(row['SH'])} ｜ SB {int(
             st.rerun()
 
 # ======================
-# 帳號管理
+# ADMIN 帳號管理
 # ======================
 
 if IS_ADMIN:
@@ -350,8 +373,6 @@ if IS_ADMIN:
 
     st.header("👤 帳號管理")
 
-    user_df=pd.read_sql("SELECT * FROM users",conn)
-
     st.dataframe(
     user_df[["帳號","姓名","球隊","背號"]],
     use_container_width=True
@@ -359,19 +380,16 @@ if IS_ADMIN:
 
     delete_acc=st.selectbox(
     "選擇刪除帳號",
-    user_df["帳號"]
+    user_df["帳號"].tolist()
     )
 
     if st.button("❌ 刪除帳號"):
 
         if delete_acc!="admin":
 
-            cursor.execute(
-            "SELECT 姓名 FROM users WHERE 帳號=?",
-            (delete_acc,)
-            )
-
-            delete_name=cursor.fetchone()[0]
+            delete_name=user_df[
+            user_df["帳號"]==delete_acc
+            ].iloc[0]["姓名"]
 
             cursor.execute(
             "DELETE FROM users WHERE 帳號=?",
@@ -385,10 +403,6 @@ if IS_ADMIN:
 
             conn.commit()
 
-            st.success("帳號與紀錄已刪除")
+            st.success("帳號與全部紀錄已刪除")
 
             st.rerun()
-
-        else:
-
-            st.warning("admin帳號不可刪除")
