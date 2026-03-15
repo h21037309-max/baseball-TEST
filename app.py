@@ -133,7 +133,6 @@ IS_ADMIN=login_name in ADMINS
 # ======================
 
 df=pd.read_sql("SELECT * FROM stats",conn)
-
 df=df.fillna(0)
 
 # ======================
@@ -185,13 +184,13 @@ if IS_ADMIN:
         BB=summary["BB"]
         SF=summary["SF"]
 
-        summary["打擊率"]=(H/AB).round(3).fillna(0)
+        summary["打擊率"]=(H/AB).replace([float("inf")],0).round(3).fillna(0)
 
         summary["上壘率"]=(
         (H+BB)/(AB+BB+SF)
-        ).round(3).fillna(0)
+        ).replace([float("inf")],0).round(3).fillna(0)
 
-        summary["長打率"]=(TB/AB).round(3).fillna(0)
+        summary["長打率"]=(TB/AB).replace([float("inf")],0).round(3).fillna(0)
 
         summary["OPS"]=(
         summary["上壘率"]+
@@ -231,11 +230,8 @@ if not player_df.empty:
     )
 
     AVG=round(H/AB,3) if AB>0 else 0
-
     OBP=round((H+BB)/(AB+BB+SF),3) if (AB+BB+SF)>0 else 0
-
     SLG=round(TB/AB,3) if AB>0 else 0
-
     OPS=round(OBP+SLG,3)
 
     c1,c2,c3,c4,c5,c6=st.columns(6)
@@ -258,18 +254,15 @@ game_date=st.date_input("比賽日期",datetime.today())
 c1,c2,c3=st.columns(3)
 
 with c1:
-
     opponent=st.text_input("對戰球隊")
 
 with c2:
-
     PA=st.number_input("打席",0)
     AB=st.number_input("打數",0)
     R=st.number_input("得分",0)
     RBI=st.number_input("打點",0)
 
 with c3:
-
     single=st.number_input("1B",0)
     double=st.number_input("2B",0)
     triple=st.number_input("3B",0)
@@ -280,6 +273,13 @@ with c3:
     SB=st.number_input("SB",0)
 
 H=single+double+triple+HR
+
+# 防呆
+if AB > PA:
+    st.error("打數不能大於打席")
+
+if H > AB:
+    st.error("安打不能大於打數")
 
 if st.button("新增紀錄"):
 
@@ -319,18 +319,7 @@ if st.button("新增紀錄"):
 
 st.header("📅 單場比賽紀錄")
 
-search_date=st.date_input("查詢日期(空=全部)",None)
-
-show_df=player_df
-
-if search_date:
-
-    show_df=show_df[
-    show_df["日期"]==
-    search_date.strftime("%Y-%m-%d")
-    ]
-
-for _,row in show_df.sort_values("日期",ascending=False).iterrows():
+for _,row in player_df.sort_values("日期",ascending=False).iterrows():
 
     colA,colB=st.columns([9,1])
 
