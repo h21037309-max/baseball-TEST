@@ -249,7 +249,7 @@ border-radius:10px;
 ">
 
 <div style="flex:1;text-align:center">
-<div style="font-size:12px;color:#666">打席</div>
+<div style="font-size:12px;color:#666">打數</div>
 <div style="font-size:26px;font-weight:700">{int(total["打席"])}</div>
 </div>
 
