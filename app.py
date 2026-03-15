@@ -3,6 +3,8 @@ import pandas as pd
 from datetime import datetime
 import os
 import uuid
+import requests
+import base64
 
 st.set_page_config(layout="wide")
 
@@ -13,6 +15,40 @@ USER_FILE="users.csv"
 
 ADMINS=["洪仲平"]
 
+# ======================
+# GitHub設定
+# ======================
+
+GITHUB_TOKEN = st.secrets["github_token"]
+REPO = "你的GitHub帳號/你的repo"
+BRANCH = "main"
+
+def upload_to_github(file_path):
+
+    with open(file_path,"rb") as f:
+        content = base64.b64encode(f.read()).decode()
+
+    url = f"https://api.github.com/repos/{REPO}/contents/{file_path}"
+
+    headers={"Authorization":f"token {GITHUB_TOKEN}"}
+
+    r=requests.get(url,headers=headers)
+
+    sha=None
+    if r.status_code==200:
+        sha=r.json()["sha"]
+
+    data={
+        "message":f"update {file_path}",
+        "content":content,
+        "branch":BRANCH
+    }
+
+    if sha:
+        data["sha"]=sha
+
+    requests.put(url,headers=headers,json=data)
+
 
 # ======================
 # users 初始化
@@ -21,17 +57,16 @@ ADMINS=["洪仲平"]
 if not os.path.exists(USER_FILE):
 
     pd.DataFrame([{
-
     "帳號":"admin",
     "密碼":"admin123",
     "姓名":"洪仲平",
     "球隊":"ADMIN",
     "背號":0
-
     }]).to_csv(USER_FILE,index=False)
 
-user_df=pd.read_csv(USER_FILE)
+    upload_to_github(USER_FILE)
 
+user_df=pd.read_csv(USER_FILE)
 
 
 # ======================
@@ -59,23 +94,22 @@ if mode=="註冊":
         else:
 
             new=pd.DataFrame([{
-
             "帳號":acc,
             "密碼":pw,
             "姓名":real.strip(),
             "球隊":team,
             "背號":num
-
             }])
 
             user_df=pd.concat([user_df,new],ignore_index=True)
 
             user_df.to_csv(USER_FILE,index=False)
 
+            upload_to_github(USER_FILE)
+
             st.success("✅ 註冊成功")
 
     st.stop()
-
 
 
 # ======================
@@ -101,7 +135,6 @@ team_default=login.iloc[0]["球隊"]
 number_default=int(login.iloc[0]["背號"])
 
 IS_ADMIN=login_name in ADMINS
-
 
 
 # ======================
@@ -137,7 +170,6 @@ df["姓名"]=df["姓名"].astype(str).str.strip()
 df=df.fillna(0)
 
 
-
 # ======================
 # ADMIN 球員中心
 # ======================
@@ -152,13 +184,7 @@ if IS_ADMIN:
 
     user_df["顯示"]=user_df["帳號"].astype(str)+"｜"+user_df["姓名"]
 
-    select_player=st.selectbox(
-
-    "選擇球員",
-
-    user_df["顯示"].tolist()
-
-    )
+    select_player=st.selectbox("選擇球員",user_df["顯示"].tolist())
 
     select_acc=select_player.split("｜")[0]
 
@@ -167,30 +193,22 @@ if IS_ADMIN:
     player_name=str(info["姓名"]).strip()
 
     team_default=info["球隊"]
-
     number_default=int(info["背號"])
-
 
     if not df.empty:
 
         st.subheader("📊 全部球員累積排行榜")
 
         summary=df.groupby(
-
         ["球隊","背號","姓名"],
-
         as_index=False
-
         ).sum(numeric_only=True)
 
-
         TB=(
-
         summary["1B"]
         +summary["2B"]*2
         +summary["3B"]*3
         +summary["HR"]*4
-
         )
 
         AB=summary["打數"]
@@ -212,15 +230,12 @@ if IS_ADMIN:
         ).round(3)
 
         st.dataframe(
-
         summary.sort_values("OPS",ascending=False),
-
         use_container_width=True)
 
 else:
 
     player_name=login_name
-
 
 
 # ======================
@@ -241,20 +256,15 @@ if not player_df.empty:
     SF=total["SF"]
 
     TB=(
-
     total["1B"]
     +total["2B"]*2
     +total["3B"]*3
     +total["HR"]*4
-
     )
 
     AVG=round(H/AB,3) if AB>0 else 0
-
     OBP=round((H+BB)/(AB+BB+SF),3) if (AB+BB+SF)>0 else 0
-
     SLG=round(TB/AB,3) if AB>0 else 0
-
     OPS=round(OBP+SLG,3)
 
     c1,c2,c3,c4,c5,c6=st.columns(6)
@@ -265,7 +275,6 @@ if not player_df.empty:
     c4.metric("上壘率",OBP)
     c5.metric("長打率",SLG)
     c6.metric("OPS",OPS)
-
 
 
 # ======================
@@ -279,18 +288,15 @@ game_date=st.date_input("比賽日期",datetime.today())
 c1,c2,c3=st.columns(3)
 
 with c1:
-
     opponent=st.text_input("對戰球隊")
 
 with c2:
-
     PA=st.number_input("打席",0)
     AB=st.number_input("打數",0)
     R=st.number_input("得分",0)
     RBI=st.number_input("打點",0)
 
 with c3:
-
     single=st.number_input("1B",0)
     double=st.number_input("2B",0)
     triple=st.number_input("3B",0)
@@ -300,9 +306,7 @@ with c3:
     SH=st.number_input("SH",0)
     SB=st.number_input("SB",0)
 
-# ⭐ 安打自動加總（不顯示提示）
 H=single+double+triple+HR
-
 
 if st.button("新增紀錄"):
 
@@ -337,10 +341,11 @@ if st.button("新增紀錄"):
 
     df.to_csv(DATA_FILE,index=False)
 
+    upload_to_github(DATA_FILE)
+
     st.success("新增成功")
 
     st.rerun()
-
 
 
 # ======================
@@ -390,8 +395,9 @@ BB {int(row['BB'])} ｜ SF {int(row['SF'])} ｜ SH {int(row['SH'])} ｜ SB {int(
 
             df.to_csv(DATA_FILE,index=False)
 
-            st.rerun()
+            upload_to_github(DATA_FILE)
 
+            st.rerun()
 
 
 # ======================
@@ -405,19 +411,13 @@ if IS_ADMIN:
     st.header("👤 帳號管理")
 
     st.dataframe(
-
     user_df[["帳號","姓名","球隊","背號"]],
-
     use_container_width=True
-
     )
 
     delete_acc=st.selectbox(
-
     "選擇刪除帳號",
-
     user_df["帳號"].tolist()
-
     )
 
     if st.button("❌ 刪除帳號"):
@@ -434,10 +434,18 @@ if IS_ADMIN:
 
             user_df.to_csv(USER_FILE,index=False)
 
+            upload_to_github(USER_FILE)
+
             df=df[df["姓名"]!=delete_name]
 
             df.to_csv(DATA_FILE,index=False)
 
+            upload_to_github(DATA_FILE)
+
             st.success("帳號與全部紀錄已刪除")
 
             st.rerun()
+
+        else:
+
+            st.warning("admin帳號不可刪除")
