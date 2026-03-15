@@ -14,7 +14,7 @@ ADMINS=["洪仲平"]
 # SQLite資料庫
 # ======================
 
-conn = sqlite3.connect("database.db",check_same_thread=False)
+conn = sqlite3.connect("database.db",check_same_thread=False,timeout=10)
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -213,7 +213,11 @@ st.header("📊 個人累積統計")
 
 player_df=df[df["姓名"]==player_name]
 
-if not player_df.empty:
+if player_df.empty:
+
+    st.info("目前沒有任何比賽紀錄")
+
+else:
 
     total=player_df.sum(numeric_only=True)
 
@@ -234,14 +238,14 @@ if not player_df.empty:
     SLG=round(TB/AB,3) if AB>0 else 0
     OPS=round(OBP+SLG,3)
 
- cols = st.columns(6)
+    cols = st.columns(6)
 
-cols[0].metric("打席", int(total["打席"]))
-cols[1].metric("安打", int(H))
-cols[2].metric("打擊率", AVG)
-cols[3].metric("上壘率", OBP)
-cols[4].metric("長打率", SLG)
-cols[5].metric("OPS", OPS)
+    cols[0].metric("打席", int(total["打席"]))
+    cols[1].metric("安打", int(H))
+    cols[2].metric("打擊率", AVG)
+    cols[3].metric("上壘率", OBP)
+    cols[4].metric("長打率", SLG)
+    cols[5].metric("OPS", OPS)
 
 # ======================
 # 新增紀錄
@@ -274,7 +278,6 @@ with c3:
 
 H=single+double+triple+HR
 
-# 防呆
 if AB > PA:
     st.error("打數不能大於打席")
 
