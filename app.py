@@ -238,15 +238,25 @@ else:
     SLG=round(TB/AB,3) if AB>0 else 0
     OPS=round(OBP+SLG,3)
 
-    cols = st.columns(6)
+    col1,col2,col3,col4,col5,col6=st.columns(6)
 
-    cols[0].metric("打席", int(total["打席"]))
-    cols[1].metric("安打", int(H))
-    cols[2].metric("打擊率", AVG)
-    cols[3].metric("上壘率", OBP)
-    cols[4].metric("長打率", SLG)
-    cols[5].metric("OPS", OPS)
+    with col1:
+        st.metric("打席",int(total["打席"]))
 
+    with col2:
+        st.metric("安打",int(H))
+
+    with col3:
+        st.metric("打擊率",AVG)
+
+    with col4:
+        st.metric("上壘率",OBP)
+
+    with col5:
+        st.metric("長打率",SLG)
+
+    with col6:
+        st.metric("OPS",OPS)
 # ======================
 # 新增紀錄
 # ======================
