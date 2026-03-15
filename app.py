@@ -234,14 +234,34 @@ if not player_df.empty:
     SLG=round(TB/AB,3) if AB>0 else 0
     OPS=round(OBP+SLG,3)
 
-    c1,c2,c3,c4,c5,c6=st.columns(6)
+    stats_card=pd.DataFrame([{
 
-    c1.metric("打席",int(total["打席"]))
-    c2.metric("安打",int(H))
-    c3.metric("打擊率",AVG)
-    c4.metric("上壘率",OBP)
-    c5.metric("長打率",SLG)
-    c6.metric("OPS",OPS)
+"打席":int(total["打席"]),
+"打數":int(AB),
+"安打":int(H),
+
+"1B":int(total["single"]),
+"2B":int(total["double"]),
+"3B":int(total["triple"]),
+"HR":int(total["HR"]),
+
+"BB":int(total["BB"]),
+"SF":int(total["SF"]),
+"SH":int(total["SH"]),
+"SB":int(total["SB"]),
+
+"AVG":AVG,
+"OBP":OBP,
+"SLG":SLG,
+"OPS":OPS
+
+}])
+
+st.dataframe(
+stats_card,
+use_container_width=True,
+hide_index=True
+)
 
 # ======================
 # 新增紀錄
