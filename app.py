@@ -239,19 +239,44 @@ else:
     OPS=round(OBP+SLG,3)
 
     st.markdown(f"""
-    <div style="display:flex;justify-content:space-between;
-    background:#f5f5f5;padding:20px;border-radius:10px;
-    font-size:20px;font-weight:bold">
+<div style="display:flex;gap:60px;
+background:#f8f9fa;
+padding:25px;
+border-radius:12px;
+justify-content:center">
 
-    <div>打席<br>{int(total["打席"])}</div>
-    <div>安打<br>{int(H)}</div>
-    <div>打擊率<br>{AVG}</div>
-    <div>上壘率<br>{OBP}</div>
-    <div>長打率<br>{SLG}</div>
-    <div>OPS<br>{OPS}</div>
+<div style="text-align:center">
+<div style="font-size:14px;color:#666">打席</div>
+<div style="font-size:32px;font-weight:700">{int(total["打席"])}</div>
+</div>
 
-    </div>
-    """,unsafe_allow_html=True)
+<div style="text-align:center">
+<div style="font-size:14px;color:#666">安打</div>
+<div style="font-size:32px;font-weight:700">{int(H)}</div>
+</div>
+
+<div style="text-align:center">
+<div style="font-size:14px;color:#666">打擊率</div>
+<div style="font-size:32px;font-weight:700">{AVG}</div>
+</div>
+
+<div style="text-align:center">
+<div style="font-size:14px;color:#666">上壘率</div>
+<div style="font-size:32px;font-weight:700">{OBP}</div>
+</div>
+
+<div style="text-align:center">
+<div style="font-size:14px;color:#666">長打率</div>
+<div style="font-size:32px;font-weight:700">{SLG}</div>
+</div>
+
+<div style="text-align:center">
+<div style="font-size:14px;color:#666">OPS</div>
+<div style="font-size:32px;font-weight:700">{OPS}</div>
+</div>
+
+</div>
+""",unsafe_allow_html=True)
 # ======================
 # 新增紀錄
 # ======================
