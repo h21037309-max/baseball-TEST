@@ -238,25 +238,23 @@ else:
     SLG=round(TB/AB,3) if AB>0 else 0
     OPS=round(OBP+SLG,3)
 
-    col1,col2,col3,col4,col5,col6=st.columns(6)
+    st.markdown(f"""
+<div style="display:flex;gap:40px;font-size:20px;font-weight:bold">
 
-    with col1:
-        st.metric("打席",int(total["打席"]))
+<div>打席<br>{int(total["打席"])}</div>
 
-    with col2:
-        st.metric("安打",int(H))
+<div>安打<br>{int(H)}</div>
 
-    with col3:
-        st.metric("打擊率",AVG)
+<div>打擊率<br>{AVG}</div>
 
-    with col4:
-        st.metric("上壘率",OBP)
+<div>上壘率<br>{OBP}</div>
 
-    with col5:
-        st.metric("長打率",SLG)
+<div>長打率<br>{SLG}</div>
 
-    with col6:
-        st.metric("OPS",OPS)
+<div>OPS<br>{OPS}</div>
+
+</div>
+""", unsafe_allow_html=True)
 # ======================
 # 新增紀錄
 # ======================
