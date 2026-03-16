@@ -358,3 +358,46 @@ if page=="聯盟排行榜":
     players["OPS"] = ((H+BB)/(AB+BB+SF) + TB/AB).replace([float("inf")],0).round(3)
 
     st.dataframe(players.sort_values("OPS",ascending=False),use_container_width=True)
+
+# ======================
+# ADMIN 帳號管理
+# ======================
+
+if IS_ADMIN:
+
+    st.divider()
+
+    st.header("帳號管理")
+
+    st.dataframe(
+        user_df[["帳號","姓名","球隊","背號"]],
+        use_container_width=True
+    )
+
+    delete_acc=st.selectbox(
+        "選擇刪除帳號",
+        user_df["帳號"].tolist()
+    )
+
+    if st.button("刪除帳號"):
+
+        if delete_acc!="admin":
+
+            delete_name=user_df[
+                user_df["帳號"]==delete_acc
+            ].iloc[0]["姓名"]
+
+            cursor.execute(
+            "DELETE FROM users WHERE 帳號=?",
+            (delete_acc,)
+            )
+
+            cursor.execute(
+            "DELETE FROM stats WHERE 姓名=?",
+            (delete_name,)
+            )
+
+            conn.commit()
+
+            st.success("帳號與數據已刪除")
+            st.rerun()
