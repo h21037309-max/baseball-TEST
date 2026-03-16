@@ -138,7 +138,8 @@ page=st.sidebar.radio(
 "個人數據",
 "新增紀錄",
 "單場紀錄",
-"聯盟排行榜"
+"聯盟排行榜",
+"球員資料庫"
 ]
 )
 
@@ -330,3 +331,49 @@ if page=="新增紀錄":
 
         st.success("新增成功")
         st.rerun()
+
+# ======================
+# 球員資料庫
+# ======================
+
+if page=="球員資料庫":
+
+    st.header("👥 球員資料庫")
+
+    players = df.groupby(
+    ["球隊","背號","姓名"],
+    as_index=False
+    ).sum(numeric_only=True)
+
+    TB = (
+    players["single"]
+    + players["double"]*2
+    + players["triple"]*3
+    + players["HR"]*4
+    )
+
+    AB = players["打數"]
+    H = players["安打"]
+    BB = players["BB"]
+    SF = players["SF"]
+
+    players["AVG"] = (H/AB).replace([float("inf")],0).round(3).fillna(0)
+
+    players["OBP"] = (
+    (H+BB)/(AB+BB+SF)
+    ).replace([float("inf")],0).round(3).fillna(0)
+
+    players["SLG"] = (TB/AB).replace([float("inf")],0).round(3).fillna(0)
+
+    players["OPS"] = (
+    players["OBP"] + players["SLG"]
+    ).round(3)
+
+    st.dataframe(
+    players.rename(columns={
+    "single":"1B",
+    "double":"2B",
+    "triple":"3B"
+    }).sort_values("OPS",ascending=False),
+    use_container_width=True
+    )
