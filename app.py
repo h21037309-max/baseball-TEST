@@ -149,7 +149,7 @@ page=st.sidebar.radio(
 df=pd.read_sql("SELECT * FROM stats",conn)
 df=df.fillna(0)
 
-# ======================
+## ======================
 # 個人數據
 # ======================
 
@@ -233,21 +233,6 @@ if page=="個人數據":
         col6.metric("BB",int(total["BB"]))
         col7.metric("SB",int(total["SB"]))
 
-        # 安打分布圖
-        st.subheader("安打分布")
-
-        chart=pd.DataFrame({
-        "Hit":["1B","2B","3B","HR"],
-        "Count":[
-        total["single"],
-        total["double"],
-        total["triple"],
-        total["HR"]
-        ]
-        })
-
-        st.bar_chart(chart.set_index("Hit"))
-
         # 最近10場
         st.subheader("最近10場")
 
@@ -266,7 +251,6 @@ if page=="個人數據":
         st.write("單場最多安打：",player_df["安打"].max())
         st.write("單場最多全壘打：",player_df["HR"].max())
         st.write("單場最多打點：",player_df["打點"].max())
-
 # ======================
 # 新增紀錄
 # ======================
