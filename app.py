@@ -302,17 +302,77 @@ if page=="新增紀錄":
 
 if page=="單場紀錄":
 
-    st.header(f"📅 {player_name} 單場紀錄")
+    st.header("📅 單場比賽紀錄")
 
-    player_df=df[df["姓名"]==player_name]
+    player_df=df[df["姓名"]==login_name]
 
     for _,row in player_df.sort_values("日期",ascending=False).iterrows():
 
-        st.markdown(f"""
+        col1,col2,col3=st.columns([8,1,1])
+
+        with col1:
+
+            st.markdown(f"""
 ### {row['日期']} vs {row['對戰球隊']}
 
 AB {row['打數']} ｜ H {row['安打']} ｜ HR {row['HR']} ｜ RBI {row['打點']}
 """)
+
+        # 修改
+        with col2:
+
+            if st.button("✏️",key="edit"+row["紀錄ID"]):
+
+                st.session_state["edit_id"]=row["紀錄ID"]
+
+        # 刪除
+        with col3:
+
+            if st.button("❌",key=row["紀錄ID"]):
+
+                cursor.execute(
+                "DELETE FROM stats WHERE 紀錄ID=?",
+                (row["紀錄ID"],)
+                )
+
+                conn.commit()
+
+                st.success("紀錄已刪除")
+
+                st.rerun()
+
+# ======================
+# 修改紀錄
+# ======================
+
+if "edit_id" in st.session_state:
+
+    edit_id=st.session_state["edit_id"]
+
+    edit_row=df[df["紀錄ID"]==edit_id].iloc[0]
+
+    st.subheader("✏️ 修改紀錄")
+
+    AB=st.number_input("打數",value=int(edit_row["打數"]))
+    H=st.number_input("安打",value=int(edit_row["安打"]))
+    HR=st.number_input("HR",value=int(edit_row["HR"]))
+    RBI=st.number_input("打點",value=int(edit_row["打點"]))
+
+    if st.button("儲存修改"):
+
+        cursor.execute("""
+        UPDATE stats
+        SET 打數=?,安打=?,HR=?,打點=?
+        WHERE 紀錄ID=?
+        """,(AB,H,HR,RBI,edit_id))
+
+        conn.commit()
+
+        del st.session_state["edit_id"]
+
+        st.success("修改完成")
+
+        st.rerun()
 
 # ======================
 # 聯盟排行榜
