@@ -375,26 +375,84 @@ if "edit_id" in st.session_state:
 
     edit_row=df[df["紀錄ID"]==edit_id].iloc[0]
 
-    st.subheader("修改紀錄")
+    st.subheader("✏️ 修改紀錄")
 
-    c1,c2,c3,c4=st.columns(4)
+    game_date=st.date_input(
+        "比賽日期",
+        datetime.strptime(edit_row["日期"],"%Y-%m-%d")
+    )
 
-    AB=c1.number_input("打數",value=int(edit_row["打數"]))
-    H=c2.number_input("安打",value=int(edit_row["安打"]))
-    HR=c3.number_input("HR",value=int(edit_row["HR"]))
-    RBI=c4.number_input("打點",value=int(edit_row["打點"]))
+    opponent=st.text_input(
+        "對戰球隊",
+        value=edit_row["對戰球隊"]
+    )
 
-    if st.button("儲存修改"):
+    c1,c2,c3=st.columns(3)
+
+    with c1:
+        PA=st.number_input("打席",value=int(edit_row["打席"]))
+        AB=st.number_input("打數",value=int(edit_row["打數"]))
+        R=st.number_input("得分",value=int(edit_row["得分"]))
+        RBI=st.number_input("打點",value=int(edit_row["打點"]))
+
+    with c2:
+        single=st.number_input("1B",value=int(edit_row["single"]))
+        double=st.number_input("2B",value=int(edit_row["double"]))
+        triple=st.number_input("3B",value=int(edit_row["triple"]))
+        HR=st.number_input("HR",value=int(edit_row["HR"]))
+
+    with c3:
+        BB=st.number_input("BB",value=int(edit_row["BB"]))
+        SF=st.number_input("SF",value=int(edit_row["SF"]))
+        SH=st.number_input("SH",value=int(edit_row["SH"]))
+        SB=st.number_input("SB",value=int(edit_row["SB"]))
+
+    H=single+double+triple+HR
+
+    if st.button("💾 儲存修改"):
 
         cursor.execute("""
         UPDATE stats
-        SET 打數=?,安打=?,HR=?,打點=?
+        SET 日期=?,
+            對戰球隊=?,
+            打席=?,
+            打數=?,
+            得分=?,
+            打點=?,
+            安打=?,
+            single=?,
+            double=?,
+            triple=?,
+            HR=?,
+            BB=?,
+            SF=?,
+            SH=?,
+            SB=?
         WHERE 紀錄ID=?
-        """,(AB,H,HR,RBI,edit_id))
+        """,(
+        game_date.strftime("%Y-%m-%d"),
+        opponent,
+        PA,
+        AB,
+        R,
+        RBI,
+        H,
+        single,
+        double,
+        triple,
+        HR,
+        BB,
+        SF,
+        SH,
+        SB,
+        edit_id
+        ))
 
         conn.commit()
 
         del st.session_state["edit_id"]
+
+        st.success("修改完成")
 
         st.rerun()
 
