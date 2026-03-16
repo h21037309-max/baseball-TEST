@@ -150,17 +150,6 @@ df=pd.read_sql("SELECT * FROM stats",conn)
 df=df.fillna(0)
 
 # ======================
-# ADMIN 球員中心
-# ======================
-
-if IS_ADMIN:
-
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("管理員功能")
-
-    st.sidebar.write("管理員：",login_name)
-
-# ======================
 # 個人數據
 # ======================
 
@@ -231,6 +220,53 @@ if page=="個人數據":
         </div>
         """,unsafe_allow_html=True)
 
+        # 打擊細項
+        st.subheader("打擊細項")
+
+        col1,col2,col3,col4,col5,col6,col7=st.columns(7)
+
+        col1.metric("1B",int(total["single"]))
+        col2.metric("2B",int(total["double"]))
+        col3.metric("3B",int(total["triple"]))
+        col4.metric("HR",int(total["HR"]))
+        col5.metric("RBI",int(total["打點"]))
+        col6.metric("BB",int(total["BB"]))
+        col7.metric("SB",int(total["SB"]))
+
+        # 安打分布圖
+        st.subheader("安打分布")
+
+        chart=pd.DataFrame({
+        "Hit":["1B","2B","3B","HR"],
+        "Count":[
+        total["single"],
+        total["double"],
+        total["triple"],
+        total["HR"]
+        ]
+        })
+
+        st.bar_chart(chart.set_index("Hit"))
+
+        # 最近10場
+        st.subheader("最近10場")
+
+        recent=player_df.sort_values("日期",ascending=False).head(10)
+
+        st.dataframe(
+        recent[[
+        "日期","對戰球隊","打數","安打","HR","打點"
+        ]],
+        use_container_width=True
+        )
+
+        # 生涯紀錄
+        st.subheader("生涯紀錄")
+
+        st.write("單場最多安打：",player_df["安打"].max())
+        st.write("單場最多全壘打：",player_df["HR"].max())
+        st.write("單場最多打點：",player_df["打點"].max())
+
 # ======================
 # 新增紀錄
 # ======================
@@ -294,91 +330,3 @@ if page=="新增紀錄":
 
         st.success("新增成功")
         st.rerun()
-
-# ======================
-# 單場紀錄
-# ======================
-
-if page=="單場紀錄":
-
-    st.header("📅 單場比賽紀錄")
-
-    player_df=df[df["姓名"]==login_name]
-
-    for _,row in player_df.sort_values("日期",ascending=False).iterrows():
-
-        colA,colB=st.columns([9,1])
-
-        with colA:
-
-            st.markdown(f"""
-### 📅 {row['日期']} ｜ {row['球隊']} #{int(row['背號'])} {row['姓名']}
-
-vs {row['對戰球隊']}
-
-PA {int(row['打席'])} ｜ AB {int(row['打數'])} ｜ H {int(row['安打'])}
-
-1B {int(row['single'])} ｜ 2B {int(row['double'])} ｜ 3B {int(row['triple'])} ｜ HR {int(row['HR'])}
-
-BB {int(row['BB'])} ｜ SF {int(row['SF'])} ｜ SH {int(row['SH'])} ｜ SB {int(row['SB'])}
-
----
-""")
-
-        with colB:
-
-            if st.button("❌",key=row["紀錄ID"]):
-
-                cursor.execute(
-                "DELETE FROM stats WHERE 紀錄ID=?",
-                (row["紀錄ID"],)
-                )
-
-                conn.commit()
-                st.rerun()
-
-# ======================
-# 聯盟排行榜
-# ======================
-
-if page=="聯盟排行榜":
-
-    st.header("🏆 聯盟排行榜")
-
-    players = df.groupby(
-    ["球隊","背號","姓名"],
-    as_index=False
-    ).sum(numeric_only=True)
-
-    TB = (
-    players["single"]
-    + players["double"]*2
-    + players["triple"]*3
-    + players["HR"]*4
-    )
-
-    AB = players["打數"]
-    H = players["安打"]
-    BB = players["BB"]
-    SF = players["SF"]
-
-    players["AVG"] = (H/AB).replace([float("inf")],0).round(3).fillna(0)
-
-    players["OBP"] = (
-    (H+BB)/(AB+BB+SF)
-    ).replace([float("inf")],0).round(3).fillna(0)
-
-    players["SLG"] = (TB/AB).replace([float("inf")],0).round(3).fillna(0)
-
-    players["OPS"] = (
-    players["OBP"] + players["SLG"]
-    ).round(3)
-
-    st.dataframe(
-    players.rename(columns={
-    "single":"1B",
-    "double":"2B",
-    "triple":"3B"
-    }).sort_values("OPS",ascending=False),
-    use_container_width=True
-    )
