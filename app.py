@@ -308,27 +308,22 @@ if page=="單場紀錄":
 
     for _,row in player_df.sort_values("日期",ascending=False).iterrows():
 
-        col1,col2,col3=st.columns([8,1,1])
-
-        with col1:
-
-            st.markdown(f"""
+        # 上方數據
+        st.markdown(f"""
 ### {row['日期']} vs {row['對戰球隊']}
 
 AB {row['打數']} ｜ H {row['安打']} ｜ HR {row['HR']} ｜ RBI {row['打點']}
 """)
 
-        # 修改
-        with col2:
+        # 下方操作按鈕（橫向）
+        col1,col2=st.columns(2)
 
-            if st.button("✏️",key="edit"+row["紀錄ID"]):
-
+        with col1:
+            if st.button("✏️ 修改",key="edit"+row["紀錄ID"]):
                 st.session_state["edit_id"]=row["紀錄ID"]
 
-        # 刪除
-        with col3:
-
-            if st.button("❌",key=row["紀錄ID"]):
+        with col2:
+            if st.button("❌ 刪除",key=row["紀錄ID"]):
 
                 cursor.execute(
                 "DELETE FROM stats WHERE 紀錄ID=?",
@@ -340,6 +335,8 @@ AB {row['打數']} ｜ H {row['安打']} ｜ HR {row['HR']} ｜ RBI {row['打點
                 st.success("紀錄已刪除")
 
                 st.rerun()
+
+        st.divider()
 
 # ======================
 # 修改紀錄
