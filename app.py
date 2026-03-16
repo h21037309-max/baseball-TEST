@@ -122,9 +122,36 @@ if login.empty:
     st.stop()
 
 login_name=str(login.iloc[0]["姓名"]).strip()
-
 team_default=login.iloc[0]["球隊"]
 number_default=int(login.iloc[0]["背號"])
+
+IS_ADMIN=login_name in ADMINS
+
+# ======================
+# ADMIN球員選擇
+# ======================
+
+if IS_ADMIN:
+
+    st.sidebar.markdown("### 👤球員選擇")
+
+    player_list=user_df["姓名"].tolist()
+
+    selected_player=st.sidebar.selectbox(
+        "選擇球員",
+        player_list
+    )
+
+    player_name=selected_player
+
+    info=user_df[user_df["姓名"]==player_name].iloc[0]
+
+    team_default=info["球隊"]
+    number_default=int(info["背號"])
+
+else:
+
+    player_name=login_name
 
 # ======================
 # 功能選單
@@ -153,9 +180,9 @@ df=df.fillna(0)
 
 if page=="個人數據":
 
-    st.header("📊 個人累積統計")
+    st.header(f"📊 {player_name} 個人累積統計")
 
-    player_df=df[df["姓名"]==login_name]
+    player_df=df[df["姓名"]==player_name]
 
     if player_df.empty:
 
@@ -182,70 +209,26 @@ if page=="個人數據":
         SLG=round(TB/AB,3) if AB>0 else 0
         OPS=round(OBP+SLG,3)
 
-        st.markdown(f"""
-        <div style="display:flex;justify-content:space-between;background:#f8f9fa;padding:15px;border-radius:10px">
+        col1,col2,col3,col4,col5,col6=st.columns(6)
 
-        <div style="flex:1;text-align:center">
-        <div style="font-size:12px;color:#666">打數</div>
-        <div style="font-size:26px;font-weight:700">{int(total["打數"])}</div>
-        </div>
-
-        <div style="flex:1;text-align:center">
-        <div style="font-size:12px;color:#666">安打</div>
-        <div style="font-size:26px;font-weight:700">{int(H)}</div>
-        </div>
-
-        <div style="flex:1;text-align:center">
-        <div style="font-size:12px;color:#666">打擊率</div>
-        <div style="font-size:26px;font-weight:700">{AVG}</div>
-        </div>
-
-        <div style="flex:1;text-align:center">
-        <div style="font-size:12px;color:#666">上壘率</div>
-        <div style="font-size:26px;font-weight:700">{OBP}</div>
-        </div>
-
-        <div style="flex:1;text-align:center">
-        <div style="font-size:12px;color:#666">長打率</div>
-        <div style="font-size:26px;font-weight:700">{SLG}</div>
-        </div>
-
-        <div style="flex:1;text-align:center">
-        <div style="font-size:12px;color:#666">OPS</div>
-        <div style="font-size:26px;font-weight:700">{OPS}</div>
-        </div>
-
-        </div>
-        """,unsafe_allow_html=True)
+        col1.metric("打數",int(total["打數"]))
+        col2.metric("安打",int(H))
+        col3.metric("打擊率",AVG)
+        col4.metric("上壘率",OBP)
+        col5.metric("長打率",SLG)
+        col6.metric("OPS",OPS)
 
         st.subheader("打擊細項")
 
-        col1,col2,col3,col4,col5,col6,col7=st.columns(7)
+        c1,c2,c3,c4,c5,c6,c7=st.columns(7)
 
-        col1.metric("1B",int(total["single"]))
-        col2.metric("2B",int(total["double"]))
-        col3.metric("3B",int(total["triple"]))
-        col4.metric("HR",int(total["HR"]))
-        col5.metric("RBI",int(total["打點"]))
-        col6.metric("BB",int(total["BB"]))
-        col7.metric("SB",int(total["SB"]))
-
-        st.subheader("最近10場")
-
-        recent=player_df.sort_values("日期",ascending=False).head(10)
-
-        st.dataframe(
-        recent[[
-        "日期","對戰球隊","打數","安打","HR","打點"
-        ]],
-        use_container_width=True
-        )
-
-        st.subheader("生涯紀錄")
-
-        st.write("單場最多安打：",player_df["安打"].max())
-        st.write("單場最多全壘打：",player_df["HR"].max())
-        st.write("單場最多打點：",player_df["打點"].max())
+        c1.metric("1B",int(total["single"]))
+        c2.metric("2B",int(total["double"]))
+        c3.metric("3B",int(total["triple"]))
+        c4.metric("HR",int(total["HR"]))
+        c5.metric("RBI",int(total["打點"]))
+        c6.metric("BB",int(total["BB"]))
+        c7.metric("SB",int(total["SB"]))
 
 # ======================
 # 新增紀錄
@@ -253,7 +236,7 @@ if page=="個人數據":
 
 if page=="新增紀錄":
 
-    st.header("新增比賽紀錄")
+    st.header(f"新增比賽紀錄（{player_name}）")
 
     game_date=st.date_input("比賽日期",datetime.today())
 
@@ -289,7 +272,7 @@ if page=="新增紀錄":
         game_date.strftime("%Y-%m-%d"),
         team_default,
         number_default,
-        login_name,
+        player_name,
         opponent,
         PA,
         AB,
@@ -317,9 +300,9 @@ if page=="新增紀錄":
 
 if page=="單場紀錄":
 
-    st.header("📅 單場比賽紀錄")
+    st.header(f"📅 {player_name} 單場紀錄")
 
-    player_df=df[df["姓名"]==login_name]
+    player_df=df[df["姓名"]==player_name]
 
     for _,row in player_df.sort_values("日期",ascending=False).iterrows():
 
