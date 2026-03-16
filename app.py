@@ -1,73 +1,35 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import sqlite3
+import os
 import uuid
 
 st.set_page_config(layout="wide")
 
 st.title("⚾打擊數據系統")
 
+DATA_FILE="data.csv"
+USER_FILE="users.csv"
+
 ADMINS=["洪仲平"]
 
 # ======================
-# SQLite資料庫
+# users 初始化
 # ======================
 
-conn = sqlite3.connect("database.db",check_same_thread=False,timeout=30)
-cursor = conn.cursor()
+if not os.path.exists(USER_FILE):
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS users(
-帳號 TEXT PRIMARY KEY,
-密碼 TEXT,
-姓名 TEXT,
-球隊 TEXT,
-背號 INTEGER
-)
-""")
+    pd.DataFrame([{
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS stats(
-紀錄ID TEXT PRIMARY KEY,
-日期 TEXT,
-球隊 TEXT,
-背號 INTEGER,
-姓名 TEXT,
-對戰球隊 TEXT,
-打席 INTEGER,
-打數 INTEGER,
-得分 INTEGER,
-打點 INTEGER,
-安打 INTEGER,
-single INTEGER,
-double INTEGER,
-triple INTEGER,
-HR INTEGER,
-BB INTEGER,
-SF INTEGER,
-SH INTEGER,
-SB INTEGER
-)
-""")
+    "帳號":"admin",
+    "密碼":"admin123",
+    "姓名":"洪仲平",
+    "球隊":"ADMIN",
+    "背號":0
 
-conn.commit()
+    }]).to_csv(USER_FILE,index=False)
 
-# ======================
-# admin初始化
-# ======================
-
-cursor.execute("SELECT * FROM users WHERE 帳號='admin'")
-if cursor.fetchone() is None:
-
-    cursor.execute(
-    "INSERT INTO users VALUES (?,?,?,?,?)",
-    ("admin","admin123","洪仲平","ADMIN",0)
-    )
-
-    conn.commit()
-
-user_df=pd.read_sql("SELECT * FROM users",conn)
+user_df=pd.read_csv(USER_FILE)
 
 # ======================
 # 登入 / 註冊
@@ -93,14 +55,21 @@ if mode=="註冊":
 
         else:
 
-            cursor.execute(
-            "INSERT INTO users VALUES (?,?,?,?,?)",
-            (acc,pw,real.strip(),team,num)
-            )
+            new=pd.DataFrame([{
 
-            conn.commit()
+            "帳號":acc,
+            "密碼":pw,
+            "姓名":real.strip(),
+            "球隊":team,
+            "背號":num
 
-            st.success("註冊成功")
+            }])
+
+            user_df=pd.concat([user_df,new],ignore_index=True)
+
+            user_df.to_csv(USER_FILE,index=False)
+
+            st.success("✅ 註冊成功")
 
     st.stop()
 
@@ -129,251 +98,308 @@ number_default=int(login.iloc[0]["背號"])
 IS_ADMIN=login_name in ADMINS
 
 # ======================
-# 功能選單
+# ADMIN 球員選擇
 # ======================
 
-page=st.sidebar.radio(
-"功能選單",
-[
-"個人數據",
-"新增紀錄",
-"單場紀錄",
-"聯盟排行榜",
-"球員資料庫"
+if IS_ADMIN:
+
+    st.sidebar.subheader("選擇球員")
+
+    user_df["顯示"]=user_df["帳號"]+"｜"+user_df["姓名"]
+
+    select_player=st.sidebar.selectbox(
+        "球員",
+        user_df["顯示"].tolist()
+    )
+
+    select_acc=select_player.split("｜")[0]
+
+    info=user_df[user_df["帳號"]==select_acc].iloc[0]
+
+    player_name=str(info["姓名"]).strip()
+    team_default=info["球隊"]
+    number_default=int(info["背號"])
+
+else:
+
+    player_name=login_name
+
+# ======================
+# CSV
+# ======================
+
+columns=[
+
+"紀錄ID","日期","球隊","背號","姓名",
+"對戰球隊",
+"打席","打數","得分","打點","安打",
+"1B","2B","3B","HR",
+"BB","SF","SH","SB"
+
 ]
-)
 
-# ======================
-# 讀取數據
-# ======================
+if os.path.exists(DATA_FILE):
 
-df=pd.read_sql("SELECT * FROM stats",conn)
+    df=pd.read_csv(DATA_FILE)
+
+else:
+
+    df=pd.DataFrame(columns=columns)
+
+for c in columns:
+
+    if c not in df.columns:
+
+        df[c]=0
+
+df["姓名"]=df["姓名"].astype(str).str.strip()
+
 df=df.fillna(0)
 
 # ======================
-# 個人數據
+# ADMIN 球員排行榜
 # ======================
 
-if page=="個人數據":
+if IS_ADMIN and not df.empty:
 
-    st.header("📊 個人累積統計")
+    st.header("🏆 全部球員排行榜")
 
-    player_df=df[df["姓名"]==login_name]
+    summary=df.groupby(
 
-    if player_df.empty:
+    ["球隊","背號","姓名"],
 
-        st.info("目前沒有任何比賽紀錄")
+    as_index=False
 
-    else:
+    ).sum(numeric_only=True)
 
-        total=player_df.sum(numeric_only=True)
+    TB=(
 
-        AB=total["打數"]
-        H=total["安打"]
-        BB=total["BB"]
-        SF=total["SF"]
+    summary["1B"]
+    +summary["2B"]*2
+    +summary["3B"]*3
+    +summary["HR"]*4
 
-        TB=(
-        total["single"]
-        +total["double"]*2
-        +total["triple"]*3
-        +total["HR"]*4
-        )
+    )
 
-        AVG=round(H/AB,3) if AB>0 else 0
-        OBP=round((H+BB)/(AB+BB+SF),3) if (AB+BB+SF)>0 else 0
-        SLG=round(TB/AB,3) if AB>0 else 0
-        OPS=round(OBP+SLG,3)
+    AB=summary["打數"]
+    H=summary["安打"]
+    BB=summary["BB"]
+    SF=summary["SF"]
 
-        st.markdown(f"""
-        <div style="display:flex;justify-content:space-between;background:#f8f9fa;padding:15px;border-radius:10px">
+    summary["打擊率"]=(H/AB).round(3).fillna(0)
 
-        <div style="flex:1;text-align:center">
-        <div style="font-size:12px;color:#666">打數</div>
-        <div style="font-size:26px;font-weight:700">{int(total["打數"])}</div>
-        </div>
+    summary["上壘率"]=(
+    (H+BB)/(AB+BB+SF)
+    ).round(3).fillna(0)
 
-        <div style="flex:1;text-align:center">
-        <div style="font-size:12px;color:#666">安打</div>
-        <div style="font-size:26px;font-weight:700">{int(H)}</div>
-        </div>
+    summary["長打率"]=(TB/AB).round(3).fillna(0)
 
-        <div style="flex:1;text-align:center">
-        <div style="font-size:12px;color:#666">打擊率</div>
-        <div style="font-size:26px;font-weight:700">{AVG}</div>
-        </div>
+    summary["OPS"]=(
+    summary["上壘率"]+
+    summary["長打率"]
+    ).round(3)
 
-        <div style="flex:1;text-align:center">
-        <div style="font-size:12px;color:#666">上壘率</div>
-        <div style="font-size:26px;font-weight:700">{OBP}</div>
-        </div>
+    st.dataframe(summary.sort_values("OPS",ascending=False),
+    use_container_width=True)
 
-        <div style="flex:1;text-align:center">
-        <div style="font-size:12px;color:#666">長打率</div>
-        <div style="font-size:26px;font-weight:700">{SLG}</div>
-        </div>
+# ======================
+# 個人累積統計
+# ======================
 
-        <div style="flex:1;text-align:center">
-        <div style="font-size:12px;color:#666">OPS</div>
-        <div style="font-size:26px;font-weight:700">{OPS}</div>
-        </div>
+st.header("📊 個人累積統計")
 
-        </div>
-        """,unsafe_allow_html=True)
+player_df=df[df["姓名"]==player_name]
 
-        # 打擊細項
-        st.subheader("打擊細項")
+if not player_df.empty:
 
-        col1,col2,col3,col4,col5,col6,col7=st.columns(7)
+    total=player_df.sum(numeric_only=True)
 
-        col1.metric("1B",int(total["single"]))
-        col2.metric("2B",int(total["double"]))
-        col3.metric("3B",int(total["triple"]))
-        col4.metric("HR",int(total["HR"]))
-        col5.metric("RBI",int(total["打點"]))
-        col6.metric("BB",int(total["BB"]))
-        col7.metric("SB",int(total["SB"]))
+    AB=total["打數"]
+    H=total["安打"]
+    BB=total["BB"]
+    SF=total["SF"]
 
-        # 安打分布圖
-        st.subheader("安打分布")
+    TB=(
 
-        chart=pd.DataFrame({
-        "Hit":["1B","2B","3B","HR"],
-        "Count":[
-        total["single"],
-        total["double"],
-        total["triple"],
-        total["HR"]
-        ]
-        })
+    total["1B"]
+    +total["2B"]*2
+    +total["3B"]*3
+    +total["HR"]*4
 
-        st.bar_chart(chart.set_index("Hit"))
+    )
 
-        # 最近10場
-        st.subheader("最近10場")
+    AVG=round(H/AB,3) if AB>0 else 0
+    OBP=round((H+BB)/(AB+BB+SF),3) if (AB+BB+SF)>0 else 0
+    SLG=round(TB/AB,3) if AB>0 else 0
+    OPS=round(OBP+SLG,3)
 
-        recent=player_df.sort_values("日期",ascending=False).head(10)
+    c1,c2,c3,c4,c5,c6=st.columns(6)
 
-        st.dataframe(
-        recent[[
-        "日期","對戰球隊","打數","安打","HR","打點"
-        ]],
-        use_container_width=True
-        )
-
-        # 生涯紀錄
-        st.subheader("生涯紀錄")
-
-        st.write("單場最多安打：",player_df["安打"].max())
-        st.write("單場最多全壘打：",player_df["HR"].max())
-        st.write("單場最多打點：",player_df["打點"].max())
+    c1.metric("打席",int(total["打席"]))
+    c2.metric("安打",int(H))
+    c3.metric("打擊率",AVG)
+    c4.metric("上壘率",OBP)
+    c5.metric("長打率",SLG)
+    c6.metric("OPS",OPS)
 
 # ======================
 # 新增紀錄
 # ======================
 
-if page=="新增紀錄":
+st.header("新增比賽紀錄")
 
-    st.header("新增比賽紀錄")
+game_date=st.date_input("比賽日期",datetime.today())
 
-    game_date=st.date_input("比賽日期",datetime.today())
+c1,c2,c3=st.columns(3)
 
-    c1,c2,c3=st.columns(3)
+with c1:
 
-    with c1:
-        opponent=st.text_input("對戰球隊")
+    opponent=st.text_input("對戰球隊")
 
-    with c2:
-        PA=st.number_input("打席",0)
-        AB=st.number_input("打數",0)
-        R=st.number_input("得分",0)
-        RBI=st.number_input("打點",0)
+with c2:
 
-    with c3:
-        single=st.number_input("1B",0)
-        double=st.number_input("2B",0)
-        triple=st.number_input("3B",0)
-        HR=st.number_input("HR",0)
-        BB=st.number_input("BB",0)
-        SF=st.number_input("SF",0)
-        SH=st.number_input("SH",0)
-        SB=st.number_input("SB",0)
+    PA=st.number_input("打席",0)
+    AB=st.number_input("打數",0)
+    R=st.number_input("得分",0)
+    RBI=st.number_input("打點",0)
 
-    H=single+double+triple+HR
+with c3:
 
-    if st.button("新增紀錄"):
+    single=st.number_input("1B",0)
+    double=st.number_input("2B",0)
+    triple=st.number_input("3B",0)
+    HR=st.number_input("HR",0)
+    BB=st.number_input("BB",0)
+    SF=st.number_input("SF",0)
+    SH=st.number_input("SH",0)
+    SB=st.number_input("SB",0)
 
-        cursor.execute("""
-        INSERT INTO stats VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """,(
-        str(uuid.uuid4()),
-        game_date.strftime("%Y-%m-%d"),
-        team_default,
-        number_default,
-        login_name,
-        opponent,
-        PA,
-        AB,
-        R,
-        RBI,
-        H,
-        single,
-        double,
-        triple,
-        HR,
-        BB,
-        SF,
-        SH,
-        SB
-        ))
+H=single+double+triple+HR
 
-        conn.commit()
+if st.button("新增紀錄"):
 
-        st.success("新增成功")
-        st.rerun()
+    new=pd.DataFrame([{
+
+    "紀錄ID":str(uuid.uuid4()),
+    "日期":game_date.strftime("%Y-%m-%d"),
+    "球隊":team_default,
+    "背號":number_default,
+    "姓名":player_name,
+    "對戰球隊":opponent,
+
+    "打席":PA,
+    "打數":AB,
+    "得分":R,
+    "打點":RBI,
+    "安打":H,
+
+    "1B":single,
+    "2B":double,
+    "3B":triple,
+    "HR":HR,
+
+    "BB":BB,
+    "SF":SF,
+    "SH":SH,
+    "SB":SB
+
+    }])
+
+    df=pd.concat([df,new],ignore_index=True)
+
+    df.to_csv(DATA_FILE,index=False)
+
+    st.success("新增成功")
+
+    st.rerun()
 
 # ======================
-# 球員資料庫
+# 單場紀錄
 # ======================
 
-if page=="球員資料庫":
+st.header("📅 單場比賽紀錄")
 
-    st.header("👥 球員資料庫")
+search_date=st.date_input("查詢日期(空=全部)",None)
 
-    players = df.groupby(
-    ["球隊","背號","姓名"],
-    as_index=False
-    ).sum(numeric_only=True)
+show_df=player_df
 
-    TB = (
-    players["single"]
-    + players["double"]*2
-    + players["triple"]*3
-    + players["HR"]*4
-    )
+if search_date:
 
-    AB = players["打數"]
-    H = players["安打"]
-    BB = players["BB"]
-    SF = players["SF"]
+    show_df=show_df[
+    show_df["日期"]==
+    search_date.strftime("%Y-%m-%d")
+    ]
 
-    players["AVG"] = (H/AB).replace([float("inf")],0).round(3).fillna(0)
+for _,row in show_df.sort_values("日期",ascending=False).iterrows():
 
-    players["OBP"] = (
-    (H+BB)/(AB+BB+SF)
-    ).replace([float("inf")],0).round(3).fillna(0)
+    colA,colB=st.columns([9,1])
 
-    players["SLG"] = (TB/AB).replace([float("inf")],0).round(3).fillna(0)
+    with colA:
 
-    players["OPS"] = (
-    players["OBP"] + players["SLG"]
-    ).round(3)
+        st.markdown(f"""
+
+### 📅 {row['日期']} ｜ {row['球隊']} #{int(row['背號'])} {row['姓名']}
+
+vs {row['對戰球隊']}
+
+PA {int(row['打席'])} ｜ AB {int(row['打數'])} ｜ H {int(row['安打'])}
+
+1B {int(row['1B'])} ｜ 2B {int(row['2B'])} ｜ 3B {int(row['3B'])} ｜ HR {int(row['HR'])}
+
+BB {int(row['BB'])} ｜ SF {int(row['SF'])} ｜ SH {int(row['SH'])} ｜ SB {int(row['SB'])}
+
+---
+
+""")
+
+    with colB:
+
+        if st.button("❌",key=row["紀錄ID"]):
+
+            df=df[df["紀錄ID"]!=row["紀錄ID"]]
+
+            df.to_csv(DATA_FILE,index=False)
+
+            st.rerun()
+
+# ======================
+# ADMIN 帳號管理
+# ======================
+
+if IS_ADMIN:
+
+    st.divider()
+
+    st.header("👤 帳號管理")
 
     st.dataframe(
-    players.rename(columns={
-    "single":"1B",
-    "double":"2B",
-    "triple":"3B"
-    }).sort_values("OPS",ascending=False),
+    user_df[["帳號","姓名","球隊","背號"]],
     use_container_width=True
     )
+
+    delete_acc=st.selectbox(
+    "選擇刪除帳號",
+    user_df["帳號"].tolist()
+    )
+
+    if st.button("❌ 刪除帳號"):
+
+        if delete_acc!="admin":
+
+            delete_name=user_df[
+            user_df["帳號"]==delete_acc
+            ].iloc[0]["姓名"]
+
+            user_df=user_df[
+            user_df["帳號"]!=delete_acc
+            ]
+
+            user_df.to_csv(USER_FILE,index=False)
+
+            df=df[df["姓名"]!=delete_name]
+
+            df.to_csv(DATA_FILE,index=False)
+
+            st.success("帳號與全部紀錄已刪除")
+
+            st.rerun()
