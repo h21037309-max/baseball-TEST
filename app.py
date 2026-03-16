@@ -126,8 +126,6 @@ login_name=str(login.iloc[0]["姓名"]).strip()
 team_default=login.iloc[0]["球隊"]
 number_default=int(login.iloc[0]["背號"])
 
-IS_ADMIN=login_name in ADMINS
-
 # ======================
 # 功能選單
 # ======================
@@ -149,7 +147,7 @@ page=st.sidebar.radio(
 df=pd.read_sql("SELECT * FROM stats",conn)
 df=df.fillna(0)
 
-## ======================
+# ======================
 # 個人數據
 # ======================
 
@@ -220,7 +218,6 @@ if page=="個人數據":
         </div>
         """,unsafe_allow_html=True)
 
-        # 打擊細項
         st.subheader("打擊細項")
 
         col1,col2,col3,col4,col5,col6,col7=st.columns(7)
@@ -233,7 +230,6 @@ if page=="個人數據":
         col6.metric("BB",int(total["BB"]))
         col7.metric("SB",int(total["SB"]))
 
-        # 最近10場
         st.subheader("最近10場")
 
         recent=player_df.sort_values("日期",ascending=False).head(10)
@@ -245,12 +241,12 @@ if page=="個人數據":
         use_container_width=True
         )
 
-        # 生涯紀錄
         st.subheader("生涯紀錄")
 
         st.write("單場最多安打：",player_df["安打"].max())
         st.write("單場最多全壘打：",player_df["HR"].max())
         st.write("單場最多打點：",player_df["打點"].max())
+
 # ======================
 # 新增紀錄
 # ======================
@@ -314,3 +310,51 @@ if page=="新增紀錄":
 
         st.success("新增成功")
         st.rerun()
+
+# ======================
+# 單場紀錄
+# ======================
+
+if page=="單場紀錄":
+
+    st.header("📅 單場比賽紀錄")
+
+    player_df=df[df["姓名"]==login_name]
+
+    for _,row in player_df.sort_values("日期",ascending=False).iterrows():
+
+        st.markdown(f"""
+### {row['日期']} vs {row['對戰球隊']}
+
+AB {row['打數']} ｜ H {row['安打']} ｜ HR {row['HR']} ｜ RBI {row['打點']}
+""")
+
+# ======================
+# 聯盟排行榜
+# ======================
+
+if page=="聯盟排行榜":
+
+    st.header("🏆 聯盟排行榜")
+
+    players = df.groupby(
+    ["球隊","背號","姓名"],
+    as_index=False
+    ).sum(numeric_only=True)
+
+    TB = (
+    players["single"]
+    + players["double"]*2
+    + players["triple"]*3
+    + players["HR"]*4
+    )
+
+    AB = players["打數"]
+    H = players["安打"]
+    BB = players["BB"]
+    SF = players["SF"]
+
+    players["AVG"] = (H/AB).replace([float("inf")],0).round(3)
+    players["OPS"] = ((H+BB)/(AB+BB+SF) + TB/AB).replace([float("inf")],0).round(3)
+
+    st.dataframe(players.sort_values("OPS",ascending=False),use_container_width=True)
