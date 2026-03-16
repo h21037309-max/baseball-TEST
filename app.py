@@ -157,15 +157,17 @@ else:
 # 功能選單
 # ======================
 
-page=st.sidebar.radio(
-"功能選單",
-[
+menu=[
 "個人數據",
 "新增紀錄",
 "單場紀錄",
 "聯盟排行榜"
 ]
-)
+
+if IS_ADMIN:
+    menu.append("帳號管理")
+
+page=st.sidebar.radio("功能選單",menu)
 
 # ======================
 # 讀取數據
