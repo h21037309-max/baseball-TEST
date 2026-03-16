@@ -14,7 +14,7 @@ ADMINS=["洪仲平"]
 # SQLite資料庫
 # ======================
 
-conn = sqlite3.connect("database.db",check_same_thread=False,timeout=30)
+conn = sqlite3.connect("database.db",check_same_thread=False)
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -53,11 +53,14 @@ SB INTEGER
 
 conn.commit()
 
+user_df=pd.read_sql("SELECT * FROM users",conn)
+
 # ======================
 # admin初始化
 # ======================
 
 cursor.execute("SELECT * FROM users WHERE 帳號='admin'")
+
 if cursor.fetchone() is None:
 
     cursor.execute(
@@ -66,8 +69,6 @@ if cursor.fetchone() is None:
     )
 
     conn.commit()
-
-user_df=pd.read_sql("SELECT * FROM users",conn)
 
 # ======================
 # 登入 / 註冊
@@ -188,7 +189,7 @@ if page=="個人數據":
 
     if player_df.empty:
 
-        st.info("目前沒有任何比賽紀錄")
+        st.info("目前沒有紀錄")
 
     else:
 
@@ -211,26 +212,27 @@ if page=="個人數據":
         SLG=round(TB/AB,3) if AB>0 else 0
         OPS=round(OBP+SLG,3)
 
-        col1,col2,col3,col4,col5,col6=st.columns(6)
+        # 橫向統計
+        c1,c2,c3,c4,c5,c6=st.columns(6)
 
-        col1.metric("打數",int(total["打數"]))
-        col2.metric("安打",int(H))
-        col3.metric("打擊率",AVG)
-        col4.metric("上壘率",OBP)
-        col5.metric("長打率",SLG)
-        col6.metric("OPS",OPS)
+        c1.metric("打數",int(total["打數"]))
+        c2.metric("安打",int(H))
+        c3.metric("AVG",AVG)
+        c4.metric("OBP",OBP)
+        c5.metric("SLG",SLG)
+        c6.metric("OPS",OPS)
 
         st.subheader("打擊細項")
 
-        c1,c2,c3,c4,c5,c6,c7=st.columns(7)
+        s1,s2,s3,s4,s5,s6,s7=st.columns(7)
 
-        c1.metric("1B",int(total["single"]))
-        c2.metric("2B",int(total["double"]))
-        c3.metric("3B",int(total["triple"]))
-        c4.metric("HR",int(total["HR"]))
-        c5.metric("RBI",int(total["打點"]))
-        c6.metric("BB",int(total["BB"]))
-        c7.metric("SB",int(total["SB"]))
+        s1.metric("1B",int(total["single"]))
+        s2.metric("2B",int(total["double"]))
+        s3.metric("3B",int(total["triple"]))
+        s4.metric("HR",int(total["HR"]))
+        s5.metric("RBI",int(total["打點"]))
+        s6.metric("BB",int(total["BB"]))
+        s7.metric("SB",int(total["SB"]))
 
 # ======================
 # 新增紀錄
@@ -238,7 +240,7 @@ if page=="個人數據":
 
 if page=="新增紀錄":
 
-    st.header(f"新增比賽紀錄（{player_name}）")
+    st.header(f"新增紀錄（{player_name}）")
 
     game_date=st.date_input("比賽日期",datetime.today())
 
@@ -302,39 +304,34 @@ if page=="新增紀錄":
 
 if page=="單場紀錄":
 
-    st.header("📅 單場比賽紀錄")
+    st.header("📅 單場紀錄")
 
-    player_df=df[df["姓名"]==login_name]
+    player_df=df[df["姓名"]==player_name]
 
     for _,row in player_df.sort_values("日期",ascending=False).iterrows():
 
-        # 上方數據
         st.markdown(f"""
 ### {row['日期']} vs {row['對戰球隊']}
 
 AB {row['打數']} ｜ H {row['安打']} ｜ HR {row['HR']} ｜ RBI {row['打點']}
 """)
 
-        # 下方操作按鈕（橫向）
-        col1,col2=st.columns(2)
+        b1,b2=st.columns(2)
 
-        with col1:
-            if st.button("✏️ 修改",key="edit"+row["紀錄ID"]):
-                st.session_state["edit_id"]=row["紀錄ID"]
+        if b1.button("✏️ 修改",key="edit"+row["紀錄ID"]):
 
-        with col2:
-            if st.button("❌ 刪除",key=row["紀錄ID"]):
+            st.session_state["edit_id"]=row["紀錄ID"]
 
-                cursor.execute(
-                "DELETE FROM stats WHERE 紀錄ID=?",
-                (row["紀錄ID"],)
-                )
+        if b2.button("❌ 刪除",key="del"+row["紀錄ID"]):
 
-                conn.commit()
+            cursor.execute(
+            "DELETE FROM stats WHERE 紀錄ID=?",
+            (row["紀錄ID"],)
+            )
 
-                st.success("紀錄已刪除")
+            conn.commit()
 
-                st.rerun()
+            st.rerun()
 
         st.divider()
 
@@ -348,12 +345,14 @@ if "edit_id" in st.session_state:
 
     edit_row=df[df["紀錄ID"]==edit_id].iloc[0]
 
-    st.subheader("✏️ 修改紀錄")
+    st.subheader("修改紀錄")
 
-    AB=st.number_input("打數",value=int(edit_row["打數"]))
-    H=st.number_input("安打",value=int(edit_row["安打"]))
-    HR=st.number_input("HR",value=int(edit_row["HR"]))
-    RBI=st.number_input("打點",value=int(edit_row["打點"]))
+    c1,c2,c3,c4=st.columns(4)
+
+    AB=c1.number_input("打數",value=int(edit_row["打數"]))
+    H=c2.number_input("安打",value=int(edit_row["安打"]))
+    HR=c3.number_input("HR",value=int(edit_row["HR"]))
+    RBI=c4.number_input("打點",value=int(edit_row["打點"]))
 
     if st.button("儲存修改"):
 
@@ -366,8 +365,6 @@ if "edit_id" in st.session_state:
         conn.commit()
 
         del st.session_state["edit_id"]
-
-        st.success("修改完成")
 
         st.rerun()
 
@@ -396,8 +393,8 @@ if page=="聯盟排行榜":
     BB = players["BB"]
     SF = players["SF"]
 
-    players["AVG"] = (H/AB).replace([float("inf")],0).round(3)
-    players["OPS"] = ((H+BB)/(AB+BB+SF) + TB/AB).replace([float("inf")],0).round(3)
+    players["AVG"]=(H/AB).replace([float("inf")],0).round(3)
+    players["OPS"]=((H+BB)/(AB+BB+SF)+TB/AB).replace([float("inf")],0).round(3)
 
     st.dataframe(players.sort_values("OPS",ascending=False),use_container_width=True)
 
@@ -405,20 +402,15 @@ if page=="聯盟排行榜":
 # ADMIN 帳號管理
 # ======================
 
-if IS_ADMIN:
-
-    st.divider()
+if page=="帳號管理" and IS_ADMIN:
 
     st.header("帳號管理")
 
-    st.dataframe(
-        user_df[["帳號","姓名","球隊","背號"]],
-        use_container_width=True
-    )
+    st.dataframe(user_df,use_container_width=True)
 
     delete_acc=st.selectbox(
-        "選擇刪除帳號",
-        user_df["帳號"].tolist()
+    "選擇刪除帳號",
+    user_df["帳號"].tolist()
     )
 
     if st.button("刪除帳號"):
@@ -426,7 +418,7 @@ if IS_ADMIN:
         if delete_acc!="admin":
 
             delete_name=user_df[
-                user_df["帳號"]==delete_acc
+            user_df["帳號"]==delete_acc
             ].iloc[0]["姓名"]
 
             cursor.execute(
@@ -441,5 +433,6 @@ if IS_ADMIN:
 
             conn.commit()
 
-            st.success("帳號與數據已刪除")
+            st.success("帳號已刪除")
+
             st.rerun()
