@@ -4,9 +4,11 @@ from datetime import datetime
 import sqlite3
 import uuid
 
-st.set_page_config(layout="wide")
-
-st.title("⚾打擊數據系統")
+st.set_page_config(
+    page_title="⚾打擊數據系統",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
 ADMINS=["洪仲平"]
 
