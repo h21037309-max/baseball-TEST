@@ -302,6 +302,10 @@ if page=="新增紀錄":
 # 單場紀錄
 # ======================
 
+# ======================
+# 單場紀錄
+# ======================
+
 if page=="單場紀錄":
 
     st.header("📅 單場紀錄")
@@ -311,27 +315,53 @@ if page=="單場紀錄":
     for _,row in player_df.sort_values("日期",ascending=False).iterrows():
 
         st.markdown(f"""
-### {row['日期']} vs {row['對戰球隊']}
-
-AB {row['打數']} ｜ H {row['安打']} ｜ HR {row['HR']} ｜ RBI {row['打點']}
+### 📅 {row['日期']}  vs  {row['對戰球隊']}
 """)
 
-        b1,b2=st.columns(2)
+        # 第一排
+        c1,c2,c3,c4=st.columns(4)
 
-        if b1.button("✏️ 修改",key="edit"+row["紀錄ID"]):
+        c1.metric("打席",int(row["打席"]))
+        c2.metric("打數",int(row["打數"]))
+        c3.metric("得分",int(row["得分"]))
+        c4.metric("打點",int(row["打點"]))
 
-            st.session_state["edit_id"]=row["紀錄ID"]
+        # 第二排
+        c5,c6,c7,c8=st.columns(4)
 
-        if b2.button("❌ 刪除",key="del"+row["紀錄ID"]):
+        c5.metric("1B",int(row["single"]))
+        c6.metric("2B",int(row["double"]))
+        c7.metric("3B",int(row["triple"]))
+        c8.metric("HR",int(row["HR"]))
 
-            cursor.execute(
-            "DELETE FROM stats WHERE 紀錄ID=?",
-            (row["紀錄ID"],)
-            )
+        # 第三排
+        c9,c10,c11,c12=st.columns(4)
 
-            conn.commit()
+        c9.metric("BB",int(row["BB"]))
+        c10.metric("SF",int(row["SF"]))
+        c11.metric("SH",int(row["SH"]))
+        c12.metric("SB",int(row["SB"]))
 
-            st.rerun()
+        # 操作按鈕
+        col1,col2=st.columns(2)
+
+        with col1:
+            if st.button("✏️ 修改",key="edit"+row["紀錄ID"]):
+                st.session_state["edit_id"]=row["紀錄ID"]
+
+        with col2:
+            if st.button("❌ 刪除",key="del"+row["紀錄ID"]):
+
+                cursor.execute(
+                "DELETE FROM stats WHERE 紀錄ID=?",
+                (row["紀錄ID"],)
+                )
+
+                conn.commit()
+
+                st.success("紀錄已刪除")
+
+                st.rerun()
 
         st.divider()
 
