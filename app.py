@@ -14,7 +14,7 @@ ADMINS=["洪仲平"]
 # SQLite資料庫
 # ======================
 
-conn = sqlite3.connect("database.db",check_same_thread=False,timeout=10)
+conn = sqlite3.connect("database.db",check_same_thread=False,timeout=30)
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -144,62 +144,18 @@ if IS_ADMIN:
     st.header("🏆 球員管理中心")
 
     user_df=user_df.dropna(subset=["帳號","姓名"])
-
     user_df["姓名"]=user_df["姓名"].astype(str).str.strip()
-
     user_df["顯示"]=user_df["帳號"].astype(str)+"｜"+user_df["姓名"]
 
-    select_player=st.selectbox(
-    "選擇球員",
-    user_df["顯示"].tolist()
-    )
+    select_player=st.selectbox("選擇球員",user_df["顯示"].tolist())
 
     select_acc=select_player.split("｜")[0]
 
     info=user_df[user_df["帳號"]==select_acc].iloc[0]
 
     player_name=str(info["姓名"]).strip()
-
     team_default=info["球隊"]
     number_default=int(info["背號"])
-
-    if not df.empty:
-
-        st.subheader("📊 全部球員累積排行榜")
-
-        summary=df.groupby(
-        ["球隊","背號","姓名"],
-        as_index=False
-        ).sum(numeric_only=True)
-
-        TB=(
-        summary["single"]
-        +summary["double"]*2
-        +summary["triple"]*3
-        +summary["HR"]*4
-        )
-
-        AB=summary["打數"]
-        H=summary["安打"]
-        BB=summary["BB"]
-        SF=summary["SF"]
-
-        summary["打擊率"]=(H/AB).replace([float("inf")],0).round(3).fillna(0)
-
-        summary["上壘率"]=(
-        (H+BB)/(AB+BB+SF)
-        ).replace([float("inf")],0).round(3).fillna(0)
-
-        summary["長打率"]=(TB/AB).replace([float("inf")],0).round(3).fillna(0)
-
-        summary["OPS"]=(
-        summary["上壘率"]+
-        summary["長打率"]
-        ).round(3)
-
-        st.dataframe(
-        summary.sort_values("OPS",ascending=False),
-        use_container_width=True)
 
 else:
 
@@ -238,48 +194,42 @@ else:
     SLG=round(TB/AB,3) if AB>0 else 0
     OPS=round(OBP+SLG,3)
 
-st.markdown(f"""
-<div style="
-display:flex;
-flex-wrap:nowrap;
-justify-content:space-between;
-background:#f8f9fa;
-padding:15px;
-border-radius:10px;
-">
+    st.markdown(f"""
+    <div style="display:flex;justify-content:space-between;background:#f8f9fa;padding:15px;border-radius:10px">
 
-<div style="flex:1;text-align:center">
-<div style="font-size:12px;color:#666">打數</div>
-<div style="font-size:26px;font-weight:700">{int(total["打席"])}</div>
-</div>
+    <div style="flex:1;text-align:center">
+    <div style="font-size:12px;color:#666">打數</div>
+    <div style="font-size:26px;font-weight:700">{int(total["打數"])}</div>
+    </div>
 
-<div style="flex:1;text-align:center">
-<div style="font-size:12px;color:#666">安打</div>
-<div style="font-size:26px;font-weight:700">{int(H)}</div>
-</div>
+    <div style="flex:1;text-align:center">
+    <div style="font-size:12px;color:#666">安打</div>
+    <div style="font-size:26px;font-weight:700">{int(H)}</div>
+    </div>
 
-<div style="flex:1;text-align:center">
-<div style="font-size:12px;color:#666">打擊率</div>
-<div style="font-size:26px;font-weight:700">{AVG}</div>
-</div>
+    <div style="flex:1;text-align:center">
+    <div style="font-size:12px;color:#666">打擊率</div>
+    <div style="font-size:26px;font-weight:700">{AVG}</div>
+    </div>
 
-<div style="flex:1;text-align:center">
-<div style="font-size:12px;color:#666">上壘率</div>
-<div style="font-size:26px;font-weight:700">{OBP}</div>
-</div>
+    <div style="flex:1;text-align:center">
+    <div style="font-size:12px;color:#666">上壘率</div>
+    <div style="font-size:26px;font-weight:700">{OBP}</div>
+    </div>
 
-<div style="flex:1;text-align:center">
-<div style="font-size:12px;color:#666">長打率</div>
-<div style="font-size:26px;font-weight:700">{SLG}</div>
-</div>
+    <div style="flex:1;text-align:center">
+    <div style="font-size:12px;color:#666">長打率</div>
+    <div style="font-size:26px;font-weight:700">{SLG}</div>
+    </div>
 
-<div style="flex:1;text-align:center">
-<div style="font-size:12px;color:#666">OPS</div>
-<div style="font-size:26px;font-weight:700">{OPS}</div>
-</div>
+    <div style="flex:1;text-align:center">
+    <div style="font-size:12px;color:#666">OPS</div>
+    <div style="font-size:26px;font-weight:700">{OPS}</div>
+    </div>
 
-</div>
-""", unsafe_allow_html=True)
+    </div>
+    """,unsafe_allow_html=True)
+
 # ======================
 # 新增紀錄
 # ======================
@@ -346,7 +296,6 @@ if st.button("新增紀錄"):
     conn.commit()
 
     st.success("新增成功")
-
     st.rerun()
 
 # ======================
@@ -403,10 +352,7 @@ if IS_ADMIN:
     use_container_width=True
     )
 
-    delete_acc=st.selectbox(
-    "選擇刪除帳號",
-    user_df["帳號"].tolist()
-    )
+    delete_acc=st.selectbox("選擇刪除帳號",user_df["帳號"].tolist())
 
     if st.button("❌ 刪除帳號"):
 
@@ -416,18 +362,10 @@ if IS_ADMIN:
             user_df["帳號"]==delete_acc
             ].iloc[0]["姓名"]
 
-            cursor.execute(
-            "DELETE FROM users WHERE 帳號=?",
-            (delete_acc,)
-            )
-
-            cursor.execute(
-            "DELETE FROM stats WHERE 姓名=?",
-            (delete_name,)
-            )
+            cursor.execute("DELETE FROM users WHERE 帳號=?",(delete_acc,))
+            cursor.execute("DELETE FROM stats WHERE 姓名=?",(delete_name,))
 
             conn.commit()
 
             st.success("帳號與全部紀錄已刪除")
-
             st.rerun()
