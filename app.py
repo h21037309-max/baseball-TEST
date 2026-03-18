@@ -16,7 +16,7 @@ USER_FILE="users.csv"
 STATS_FILE="stats.csv"
 
 # ======================
-# 初始化 CSV
+# 初始化資料
 # ======================
 
 if not os.path.exists(USER_FILE):
@@ -35,7 +35,7 @@ if not os.path.exists(STATS_FILE):
 
     columns=[
     "紀錄ID","日期","球隊","背號","姓名","對戰球隊",
-    "打席","打數","得分","打點","安打",
+    "打席","打數","得分","打點",
     "single","double","triple","HR",
     "BB","SF","SH","SB"
     ]
@@ -45,10 +45,10 @@ if not os.path.exists(STATS_FILE):
 user_df=pd.read_csv(USER_FILE)
 df=pd.read_csv(STATS_FILE)
 
-# 防止舊 CSV 缺欄位
+# 防止舊資料缺欄位
 required_cols=[
 "紀錄ID","日期","球隊","背號","姓名","對戰球隊",
-"打席","打數","得分","打點","安打",
+"打席","打數","得分","打點",
 "single","double","triple","HR",
 "BB","SF","SH","SB"
 ]
@@ -163,7 +163,7 @@ page=st.sidebar.radio("功能選單",menu)
 
 if page=="個人數據":
 
-    st.header(f"{player_name} 個人數據")
+    st.header(f"📊 {player_name} 個人數據")
 
     player_df=df[df["姓名"]==player_name]
 
@@ -175,8 +175,14 @@ if page=="個人數據":
 
         total=player_df.sum(numeric_only=True)
 
+        H=(
+        total["single"]
+        +total["double"]
+        +total["triple"]
+        +total["HR"]
+        )
+
         AB=total["打數"]
-        H=total["安打"]
 
         TB=(
         total["single"]
@@ -232,8 +238,6 @@ if page=="新增紀錄":
         SH=st.number_input("SH",0)
         SB=st.number_input("SB",0)
 
-    H=single+double+triple+HR
-
     if st.button("新增紀錄"):
 
         new=pd.DataFrame([{
@@ -247,7 +251,6 @@ if page=="新增紀錄":
         "打數":AB,
         "得分":R,
         "打點":RBI,
-        "安打":H,
         "single":single,
         "double":double,
         "triple":triple,
@@ -271,7 +274,7 @@ if page=="新增紀錄":
 
 if page=="單場紀錄":
 
-    st.header("單場紀錄")
+    st.header("📅 單場紀錄")
 
     player_df=df[df["姓名"]==player_name]
 
@@ -282,14 +285,13 @@ if page=="單場紀錄":
         c1,c2,c3,c4=st.columns(4)
 
         c1.metric("打數",int(row["打數"]))
-        c2.metric("安打",int(row["安打"]))
-        c3.metric("HR",int(row["HR"]))
-        c4.metric("打點",int(row["打點"]))
+        c2.metric("HR",int(row["HR"]))
+        c3.metric("打點",int(row["打點"]))
+        c4.metric("BB",int(row["BB"]))
 
         col1,col2=st.columns(2)
 
         if col1.button("✏ 修改",key="edit"+row["紀錄ID"]):
-
             st.session_state["edit_id"]=row["紀錄ID"]
 
         if col2.button("❌ 刪除",key="del"+row["紀錄ID"]):
@@ -310,17 +312,17 @@ if "edit_id" in st.session_state:
 
     edit_row=df[df["紀錄ID"]==st.session_state["edit_id"]].iloc[0]
 
-    st.header("修改紀錄")
+    st.header("✏ 修改紀錄")
 
     AB=st.number_input("打數",value=int(edit_row["打數"]))
-    H=st.number_input("安打",value=int(edit_row["安打"]))
     HR=st.number_input("HR",value=int(edit_row["HR"]))
     RBI=st.number_input("打點",value=int(edit_row["打點"]))
+    BB=st.number_input("BB",value=int(edit_row["BB"]))
 
     if st.button("儲存修改"):
 
-        df.loc[df["紀錄ID"]==st.session_state["edit_id"],["打數","安打","HR","打點"]]=[
-        AB,H,HR,RBI
+        df.loc[df["紀錄ID"]==st.session_state["edit_id"],["打數","HR","打點","BB"]]=[
+        AB,HR,RBI,BB
         ]
 
         df.to_csv(STATS_FILE,index=False)
@@ -336,13 +338,20 @@ if "edit_id" in st.session_state:
 
 if page=="聯盟排行榜":
 
-    st.header("聯盟排行榜")
+    st.header("🏆 聯盟排行榜")
 
     players=df.groupby(["球隊","背號","姓名"],as_index=False).sum(numeric_only=True)
 
-    players["AVG"]=(players["安打"]/players["打數"]).round(3)
+    players["H"]=(
+    players["single"]
+    +players["double"]
+    +players["triple"]
+    +players["HR"]
+    )
 
-    st.dataframe(players.sort_values("AVG",ascending=False))
+    players["AVG"]=(players["H"]/players["打數"]).replace([float("inf")],0).round(3)
+
+    st.dataframe(players.sort_values("AVG",ascending=False),use_container_width=True)
 
 # ======================
 # ADMIN帳號管理
@@ -352,7 +361,7 @@ if page=="帳號管理" and IS_ADMIN:
 
     st.header("帳號管理")
 
-    st.dataframe(user_df)
+    st.dataframe(user_df,use_container_width=True)
 
     delete_acc=st.selectbox("刪除帳號",user_df["帳號"])
 
@@ -363,4 +372,5 @@ if page=="帳號管理" and IS_ADMIN:
         user_df.to_csv(USER_FILE,index=False)
 
         st.success("刪除成功")
+
         st.rerun()
