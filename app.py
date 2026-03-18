@@ -16,12 +16,12 @@ USER_FILE="users.csv"
 STATS_FILE="stats.csv"
 
 # ======================
-# 初始化資料
+# 初始化 CSV
 # ======================
 
 if not os.path.exists(USER_FILE):
 
-    df=pd.DataFrame([{
+    users=pd.DataFrame([{
         "帳號":"admin",
         "密碼":"admin123",
         "姓名":"洪仲平",
@@ -29,7 +29,7 @@ if not os.path.exists(USER_FILE):
         "背號":0
     }])
 
-    df.to_csv(USER_FILE,index=False)
+    users.to_csv(USER_FILE,index=False)
 
 if not os.path.exists(STATS_FILE):
 
@@ -42,10 +42,15 @@ if not os.path.exists(STATS_FILE):
 
     pd.DataFrame(columns=columns).to_csv(STATS_FILE,index=False)
 
+# ======================
+# 讀取資料
+# ======================
+
 user_df=pd.read_csv(USER_FILE)
 df=pd.read_csv(STATS_FILE)
 
-# 防止舊資料缺欄位
+# 自動補欄位 (避免 KeyError)
+
 required_cols=[
 "紀錄ID","日期","球隊","背號","姓名","對戰球隊",
 "打席","打數","得分","打點",
@@ -79,7 +84,7 @@ if mode=="註冊":
 
         if acc in user_df["帳號"].astype(str).values:
 
-            st.error("帳號存在")
+            st.error("帳號已存在")
 
         else:
 
@@ -123,7 +128,7 @@ number_default=int(login.iloc[0]["背號"])
 IS_ADMIN=login_name in ADMINS
 
 # ======================
-# ADMIN球員選擇
+# ADMIN選球員
 # ======================
 
 if IS_ADMIN:
@@ -163,7 +168,7 @@ page=st.sidebar.radio("功能選單",menu)
 
 if page=="個人數據":
 
-    st.header(f"📊 {player_name} 個人數據")
+    st.header(f"📊 {player_name} 個人累積")
 
     player_df=df[df["姓名"]==player_name]
 
@@ -176,10 +181,10 @@ if page=="個人數據":
         total=player_df.sum(numeric_only=True)
 
         H=(
-        total["single"]
-        +total["double"]
-        +total["triple"]
-        +total["HR"]
+        total["single"]+
+        total["double"]+
+        total["triple"]+
+        total["HR"]
         )
 
         AB=total["打數"]
@@ -266,6 +271,7 @@ if page=="新增紀錄":
         df.to_csv(STATS_FILE,index=False)
 
         st.success("新增成功")
+
         st.rerun()
 
 # ======================
@@ -292,6 +298,7 @@ if page=="單場紀錄":
         col1,col2=st.columns(2)
 
         if col1.button("✏ 修改",key="edit"+row["紀錄ID"]):
+
             st.session_state["edit_id"]=row["紀錄ID"]
 
         if col2.button("❌ 刪除",key="del"+row["紀錄ID"]):
@@ -330,6 +337,7 @@ if "edit_id" in st.session_state:
         del st.session_state["edit_id"]
 
         st.success("修改成功")
+
         st.rerun()
 
 # ======================
@@ -365,7 +373,7 @@ if page=="帳號管理" and IS_ADMIN:
 
     delete_acc=st.selectbox("刪除帳號",user_df["帳號"])
 
-    if st.button("刪除"):
+    if st.button("刪除帳號"):
 
         user_df=user_df[user_df["帳號"]!=delete_acc]
 
