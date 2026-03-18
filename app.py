@@ -16,20 +16,18 @@ USER_FILE="users.csv"
 STATS_FILE="stats.csv"
 
 # ======================
-# 初始化 CSV
+# 初始化CSV
 # ======================
 
 if not os.path.exists(USER_FILE):
 
-    users=pd.DataFrame([{
+    pd.DataFrame([{
         "帳號":"admin",
         "密碼":"admin123",
         "姓名":"洪仲平",
         "球隊":"ADMIN",
         "背號":0
-    }])
-
-    users.to_csv(USER_FILE,index=False)
+    }]).to_csv(USER_FILE,index=False)
 
 if not os.path.exists(STATS_FILE):
 
@@ -49,7 +47,15 @@ if not os.path.exists(STATS_FILE):
 user_df=pd.read_csv(USER_FILE)
 df=pd.read_csv(STATS_FILE)
 
-# 自動補欄位 (避免 KeyError)
+# ===== CSV 欄位修復 =====
+
+rename_map={
+"1B":"single",
+"2B":"double",
+"3B":"triple"
+}
+
+df=df.rename(columns=rename_map)
 
 required_cols=[
 "紀錄ID","日期","球隊","背號","姓名","對戰球隊",
@@ -65,7 +71,7 @@ for col in required_cols:
 df=df.fillna(0)
 
 # ======================
-# 登入 / 註冊
+# 註冊 / 登入
 # ======================
 
 mode=st.sidebar.radio("帳號",["登入","註冊"])
@@ -82,7 +88,7 @@ if mode=="註冊":
 
     if st.button("建立帳號"):
 
-        if acc in user_df["帳號"].astype(str).values:
+        if acc in user_df["帳號"].values:
 
             st.error("帳號已存在")
 
@@ -96,7 +102,7 @@ if mode=="註冊":
             "背號":num
             }])
 
-            user_df=pd.concat([user_df,new],ignore_index=True)
+            user_df=pd.concat([user_df,new])
 
             user_df.to_csv(USER_FILE,index=False)
 
@@ -112,8 +118,8 @@ username=st.sidebar.text_input("帳號")
 password=st.sidebar.text_input("密碼",type="password")
 
 login=user_df[
-(user_df["帳號"].astype(str)==username)&
-(user_df["密碼"].astype(str)==password)
+(user_df["帳號"]==username)&
+(user_df["密碼"]==password)
 ]
 
 if login.empty:
@@ -121,7 +127,7 @@ if login.empty:
     st.warning("請登入")
     st.stop()
 
-login_name=str(login.iloc[0]["姓名"])
+login_name=login.iloc[0]["姓名"]
 team_default=login.iloc[0]["球隊"]
 number_default=int(login.iloc[0]["背號"])
 
@@ -150,12 +156,7 @@ else:
 # 功能選單
 # ======================
 
-menu=[
-"個人數據",
-"新增紀錄",
-"單場紀錄",
-"聯盟排行榜"
-]
+menu=["個人數據","新增紀錄","單場紀錄","聯盟排行榜"]
 
 if IS_ADMIN:
     menu.append("帳號管理")
@@ -168,7 +169,7 @@ page=st.sidebar.radio("功能選單",menu)
 
 if page=="個人數據":
 
-    st.header(f"📊 {player_name} 個人累積")
+    st.header(f"📊 {player_name} 個人數據")
 
     player_df=df[df["姓名"]==player_name]
 
@@ -180,13 +181,7 @@ if page=="個人數據":
 
         total=player_df.sum(numeric_only=True)
 
-        H=(
-        total["single"]+
-        total["double"]+
-        total["triple"]+
-        total["HR"]
-        )
-
+        H=total["single"]+total["double"]+total["triple"]+total["HR"]
         AB=total["打數"]
 
         TB=(
@@ -220,7 +215,6 @@ if page=="新增紀錄":
     st.header(f"新增紀錄（{player_name}）")
 
     game_date=st.date_input("比賽日期",datetime.today())
-
     opponent=st.text_input("對戰球隊")
 
     c1,c2,c3=st.columns(3)
@@ -266,7 +260,7 @@ if page=="新增紀錄":
         "SB":SB
         }])
 
-        df=pd.concat([df,new],ignore_index=True)
+        df=pd.concat([df,new])
 
         df.to_csv(STATS_FILE,index=False)
 
@@ -319,7 +313,7 @@ if "edit_id" in st.session_state:
 
     edit_row=df[df["紀錄ID"]==st.session_state["edit_id"]].iloc[0]
 
-    st.header("✏ 修改紀錄")
+    st.header("修改紀錄")
 
     AB=st.number_input("打數",value=int(edit_row["打數"]))
     HR=st.number_input("HR",value=int(edit_row["HR"]))
@@ -336,7 +330,7 @@ if "edit_id" in st.session_state:
 
         del st.session_state["edit_id"]
 
-        st.success("修改成功")
+        st.success("修改完成")
 
         st.rerun()
 
@@ -359,17 +353,17 @@ if page=="聯盟排行榜":
 
     players["AVG"]=(players["H"]/players["打數"]).replace([float("inf")],0).round(3)
 
-    st.dataframe(players.sort_values("AVG",ascending=False),use_container_width=True)
+    st.dataframe(players.sort_values("AVG",ascending=False))
 
 # ======================
-# ADMIN帳號管理
+# 帳號管理
 # ======================
 
 if page=="帳號管理" and IS_ADMIN:
 
     st.header("帳號管理")
 
-    st.dataframe(user_df,use_container_width=True)
+    st.dataframe(user_df)
 
     delete_acc=st.selectbox("刪除帳號",user_df["帳號"])
 
