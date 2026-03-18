@@ -47,6 +47,22 @@ if not os.path.exists(STATS_FILE):
 user_df=pd.read_csv(USER_FILE)
 df=pd.read_csv(STATS_FILE)
 
+rename_map={
+"1B":"single",
+"2B":"double",
+"3B":"triple"
+}
+
+df=df.rename(columns=rename_map)
+
+needed=[
+"single","double","triple","HR","BB","SF","SH","SB"
+]
+
+for c in needed:
+    if c not in df.columns:
+        df[c]=0
+
 # ===== CSV 欄位修復 =====
 
 rename_map={
