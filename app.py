@@ -1,75 +1,81 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import os
+import sqlite3
 import uuid
 
-st.set_page_config(
-    page_title="⚾打擊數據系統",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(layout="wide")
+
+st.title("⚾打擊數據系統")
 
 ADMINS=["洪仲平"]
 
-USER_FILE="users.csv"
-STATS_FILE="stats.csv"
-
 # ======================
-# 初始化 CSV
+# SQLite 資料庫
 # ======================
 
-if not os.path.exists(USER_FILE):
+conn=sqlite3.connect("database.db",check_same_thread=False)
+cursor=conn.cursor()
 
-    pd.DataFrame([{
-        "帳號":"admin",
-        "密碼":"admin123",
-        "姓名":"洪仲平",
-        "球隊":"ADMIN",
-        "背號":0
-    }]).to_csv(USER_FILE,index=False)
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users(
+帳號 TEXT PRIMARY KEY,
+密碼 TEXT,
+姓名 TEXT,
+球隊 TEXT,
+背號 INTEGER
+)
+""")
 
-if not os.path.exists(STATS_FILE):
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS stats(
+紀錄ID TEXT PRIMARY KEY,
+日期 TEXT,
+球隊 TEXT,
+背號 INTEGER,
+姓名 TEXT,
+對戰球隊 TEXT,
+打席 INTEGER,
+打數 INTEGER,
+得分 INTEGER,
+打點 INTEGER,
+single INTEGER,
+double INTEGER,
+triple INTEGER,
+HR INTEGER,
+BB INTEGER,
+SF INTEGER,
+SH INTEGER,
+SB INTEGER
+)
+""")
 
-    columns=[
-    "紀錄ID","日期","球隊","背號","姓名","對戰球隊",
-    "打席","打數","得分","打點",
-    "single","double","triple","HR",
-    "BB","SF","SH","SB"
-    ]
+conn.commit()
 
-    pd.DataFrame(columns=columns).to_csv(STATS_FILE,index=False)
+# ======================
+# admin初始化
+# ======================
+
+cursor.execute("SELECT * FROM users WHERE 帳號='admin'")
+
+if cursor.fetchone() is None:
+
+    cursor.execute(
+    "INSERT INTO users VALUES (?,?,?,?,?)",
+    ("admin","admin123","洪仲平","ADMIN",0)
+    )
+
+    conn.commit()
 
 # ======================
 # 讀取資料
 # ======================
 
-user_df=pd.read_csv(USER_FILE)
-df=pd.read_csv(STATS_FILE)
-
-rename_map={
-"1B":"single",
-"2B":"double",
-"3B":"triple"
-}
-
-df=df.rename(columns=rename_map)
-
-required_cols=[
-"紀錄ID","日期","球隊","背號","姓名","對戰球隊",
-"打席","打數","得分","打點",
-"single","double","triple","HR",
-"BB","SF","SH","SB"
-]
-
-for col in required_cols:
-    if col not in df.columns:
-        df[col]=0
-
-df=df.fillna(0)
+user_df=pd.read_sql("SELECT * FROM users",conn)
+df=pd.read_sql("SELECT * FROM stats",conn)
 
 # ======================
-# 登入 / 註冊
+# 註冊 / 登入
 # ======================
 
 mode=st.sidebar.radio("帳號",["登入","註冊"])
@@ -92,17 +98,12 @@ if mode=="註冊":
 
         else:
 
-            new=pd.DataFrame([{
-            "帳號":acc,
-            "密碼":pw,
-            "姓名":real,
-            "球隊":team,
-            "背號":num
-            }])
+            cursor.execute(
+            "INSERT INTO users VALUES (?,?,?,?,?)",
+            (acc,pw,real,team,num)
+            )
 
-            user_df=pd.concat([user_df,new])
-
-            user_df.to_csv(USER_FILE,index=False)
+            conn.commit()
 
             st.success("註冊成功")
 
@@ -132,14 +133,17 @@ number_default=int(login.iloc[0]["背號"])
 IS_ADMIN=login_name in ADMINS
 
 # ======================
-# ADMIN選球員
+# ADMIN 選球員
 # ======================
 
 if IS_ADMIN:
 
     player_list=user_df["姓名"].tolist()
 
-    player_name=st.sidebar.selectbox("選擇球員",player_list)
+    player_name=st.sidebar.selectbox(
+    "選擇球員",
+    player_list
+    )
 
     info=user_df[user_df["姓名"]==player_name].iloc[0]
 
@@ -179,7 +183,13 @@ if page=="個人數據":
 
         total=player_df.sum(numeric_only=True)
 
-        H=total["single"]+total["double"]+total["triple"]+total["HR"]
+        H=(
+        total["single"]
+        +total["double"]
+        +total["triple"]
+        +total["HR"]
+        )
+
         AB=total["打數"]
 
         TB=(
@@ -237,29 +247,30 @@ if page=="新增紀錄":
 
     if st.button("新增紀錄"):
 
-        new=pd.DataFrame([{
-        "紀錄ID":str(uuid.uuid4()),
-        "日期":game_date.strftime("%Y-%m-%d"),
-        "球隊":team_default,
-        "背號":number_default,
-        "姓名":player_name,
-        "對戰球隊":opponent,
-        "打席":PA,
-        "打數":AB,
-        "得分":R,
-        "打點":RBI,
-        "single":single,
-        "double":double,
-        "triple":triple,
-        "HR":HR,
-        "BB":BB,
-        "SF":SF,
-        "SH":SH,
-        "SB":SB
-        }])
+        cursor.execute("""
+        INSERT INTO stats VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """,(
+        str(uuid.uuid4()),
+        game_date.strftime("%Y-%m-%d"),
+        team_default,
+        number_default,
+        player_name,
+        opponent,
+        PA,
+        AB,
+        R,
+        RBI,
+        single,
+        double,
+        triple,
+        HR,
+        BB,
+        SF,
+        SH,
+        SB
+        ))
 
-        df=pd.concat([df,new])
-        df.to_csv(STATS_FILE,index=False)
+        conn.commit()
 
         st.success("新增成功")
         st.rerun()
@@ -292,40 +303,16 @@ if page=="單場紀錄":
 
         if col2.button("❌ 刪除",key="del"+row["紀錄ID"]):
 
-            df=df[df["紀錄ID"]!=row["紀錄ID"]]
-            df.to_csv(STATS_FILE,index=False)
+            cursor.execute(
+            "DELETE FROM stats WHERE 紀錄ID=?",
+            (row["紀錄ID"],)
+            )
+
+            conn.commit()
 
             st.rerun()
 
         st.divider()
-
-# ======================
-# 修改紀錄
-# ======================
-
-if "edit_id" in st.session_state:
-
-    edit_row=df[df["紀錄ID"]==st.session_state["edit_id"]].iloc[0]
-
-    st.header("修改紀錄")
-
-    AB=st.number_input("打數",value=int(edit_row["打數"]))
-    HR=st.number_input("HR",value=int(edit_row["HR"]))
-    RBI=st.number_input("打點",value=int(edit_row["打點"]))
-    BB=st.number_input("BB",value=int(edit_row["BB"]))
-
-    if st.button("儲存修改"):
-
-        df.loc[df["紀錄ID"]==st.session_state["edit_id"],["打數","HR","打點","BB"]]=[
-        AB,HR,RBI,BB
-        ]
-
-        df.to_csv(STATS_FILE,index=False)
-
-        del st.session_state["edit_id"]
-
-        st.success("修改完成")
-        st.rerun()
 
 # ======================
 # 聯盟排行榜
@@ -335,11 +322,10 @@ if page=="聯盟排行榜":
 
     st.header("🏆 聯盟排行榜")
 
-    players=df.groupby(["球隊","背號","姓名"],as_index=False).sum(numeric_only=True)
-
-    for col in ["single","double","triple","HR","打數"]:
-        if col not in players.columns:
-            players[col]=0
+    players=df.groupby(
+    ["球隊","背號","姓名"],
+    as_index=False
+    ).sum(numeric_only=True)
 
     players["H"]=(
     players["single"]
@@ -362,13 +348,20 @@ if page=="帳號管理" and IS_ADMIN:
 
     st.dataframe(user_df)
 
-    delete_acc=st.selectbox("刪除帳號",user_df["帳號"])
+    delete_acc=st.selectbox(
+    "刪除帳號",
+    user_df["帳號"]
+    )
 
     if st.button("刪除帳號"):
 
-        user_df=user_df[user_df["帳號"]!=delete_acc]
+        cursor.execute(
+        "DELETE FROM users WHERE 帳號=?",
+        (delete_acc,)
+        )
 
-        user_df.to_csv(USER_FILE,index=False)
+        conn.commit()
 
         st.success("刪除成功")
+
         st.rerun()
