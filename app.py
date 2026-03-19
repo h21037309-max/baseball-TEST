@@ -47,8 +47,6 @@ if not os.path.exists(STATS_FILE):
 user_df=pd.read_csv(USER_FILE)
 df=pd.read_csv(STATS_FILE)
 
-# ===== 修復舊欄位 =====
-
 rename_map={
 "1B":"single",
 "2B":"double",
@@ -71,7 +69,7 @@ for col in required_cols:
 df=df.fillna(0)
 
 # ======================
-# 註冊 / 登入
+# 登入 / 註冊
 # ======================
 
 mode=st.sidebar.radio("帳號",["登入","註冊"])
@@ -261,11 +259,9 @@ if page=="新增紀錄":
         }])
 
         df=pd.concat([df,new])
-
         df.to_csv(STATS_FILE,index=False)
 
         st.success("新增成功")
-
         st.rerun()
 
 # ======================
@@ -297,7 +293,6 @@ if page=="單場紀錄":
         if col2.button("❌ 刪除",key="del"+row["紀錄ID"]):
 
             df=df[df["紀錄ID"]!=row["紀錄ID"]]
-
             df.to_csv(STATS_FILE,index=False)
 
             st.rerun()
@@ -330,7 +325,6 @@ if "edit_id" in st.session_state:
         del st.session_state["edit_id"]
 
         st.success("修改完成")
-
         st.rerun()
 
 # ======================
@@ -343,7 +337,7 @@ if page=="聯盟排行榜":
 
     players=df.groupby(["球隊","背號","姓名"],as_index=False).sum(numeric_only=True)
 
-    for col in ["single","double","triple","HR"]:
+    for col in ["single","double","triple","HR","打數"]:
         if col not in players.columns:
             players[col]=0
 
@@ -377,5 +371,4 @@ if page=="帳號管理" and IS_ADMIN:
         user_df.to_csv(USER_FILE,index=False)
 
         st.success("刪除成功")
-
         st.rerun()
