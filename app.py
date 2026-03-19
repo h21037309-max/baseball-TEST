@@ -11,11 +11,11 @@ st.title("⚾打擊數據系統")
 ADMINS=["洪仲平"]
 
 # ======================
-# SQLite 資料庫
+# SQLite資料庫
 # ======================
 
-conn=sqlite3.connect("database.db",check_same_thread=False)
-cursor=conn.cursor()
+conn = sqlite3.connect("database.db",check_same_thread=False)
+cursor = conn.cursor()
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users(
@@ -74,6 +74,8 @@ if cursor.fetchone() is None:
 user_df=pd.read_sql("SELECT * FROM users",conn)
 df=pd.read_sql("SELECT * FROM stats",conn)
 
+df=df.fillna(0)
+
 # ======================
 # 註冊 / 登入
 # ======================
@@ -107,6 +109,8 @@ if mode=="註冊":
 
             st.success("註冊成功")
 
+            st.rerun()
+
     st.stop()
 
 # ======================
@@ -133,17 +137,14 @@ number_default=int(login.iloc[0]["背號"])
 IS_ADMIN=login_name in ADMINS
 
 # ======================
-# ADMIN 選球員
+# ADMIN選球員
 # ======================
 
 if IS_ADMIN:
 
     player_list=user_df["姓名"].tolist()
 
-    player_name=st.sidebar.selectbox(
-    "選擇球員",
-    player_list
-    )
+    player_name=st.sidebar.selectbox("選擇球員",player_list)
 
     info=user_df[user_df["姓名"]==player_name].iloc[0]
 
@@ -248,7 +249,7 @@ if page=="新增紀錄":
     if st.button("新增紀錄"):
 
         cursor.execute("""
-        INSERT INTO stats VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        INSERT INTO stats VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,(
         str(uuid.uuid4()),
         game_date.strftime("%Y-%m-%d"),
@@ -273,6 +274,7 @@ if page=="新增紀錄":
         conn.commit()
 
         st.success("新增成功")
+
         st.rerun()
 
 # ======================
@@ -298,10 +300,7 @@ if page=="單場紀錄":
 
         col1,col2=st.columns(2)
 
-        if col1.button("✏ 修改",key="edit"+row["紀錄ID"]):
-            st.session_state["edit_id"]=row["紀錄ID"]
-
-        if col2.button("❌ 刪除",key="del"+row["紀錄ID"]):
+        if col1.button("❌ 刪除",key=row["紀錄ID"]):
 
             cursor.execute(
             "DELETE FROM stats WHERE 紀錄ID=?",
@@ -348,10 +347,7 @@ if page=="帳號管理" and IS_ADMIN:
 
     st.dataframe(user_df)
 
-    delete_acc=st.selectbox(
-    "刪除帳號",
-    user_df["帳號"]
-    )
+    delete_acc=st.selectbox("刪除帳號",user_df["帳號"])
 
     if st.button("刪除帳號"):
 
