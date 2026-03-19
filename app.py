@@ -16,7 +16,7 @@ USER_FILE="users.csv"
 STATS_FILE="stats.csv"
 
 # ======================
-# 初始化CSV
+# 初始化 CSV
 # ======================
 
 if not os.path.exists(USER_FILE):
@@ -47,23 +47,7 @@ if not os.path.exists(STATS_FILE):
 user_df=pd.read_csv(USER_FILE)
 df=pd.read_csv(STATS_FILE)
 
-rename_map={
-"1B":"single",
-"2B":"double",
-"3B":"triple"
-}
-
-df=df.rename(columns=rename_map)
-
-needed=[
-"single","double","triple","HR","BB","SF","SH","SB"
-]
-
-for c in needed:
-    if c not in df.columns:
-        df[c]=0
-
-# ===== CSV 欄位修復 =====
+# ===== 修復舊欄位 =====
 
 rename_map={
 "1B":"single",
@@ -308,7 +292,6 @@ if page=="單場紀錄":
         col1,col2=st.columns(2)
 
         if col1.button("✏ 修改",key="edit"+row["紀錄ID"]):
-
             st.session_state["edit_id"]=row["紀錄ID"]
 
         if col2.button("❌ 刪除",key="del"+row["紀錄ID"]):
@@ -359,6 +342,10 @@ if page=="聯盟排行榜":
     st.header("🏆 聯盟排行榜")
 
     players=df.groupby(["球隊","背號","姓名"],as_index=False).sum(numeric_only=True)
+
+    for col in ["single","double","triple","HR"]:
+        if col not in players.columns:
+            players[col]=0
 
     players["H"]=(
     players["single"]
