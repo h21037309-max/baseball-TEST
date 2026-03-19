@@ -6,7 +6,7 @@ import uuid
 
 st.set_page_config(layout="wide")
 
-st.title("⚾打擊數據系統")
+st.title("⚾ 打擊數據系統")
 
 ADMINS=["洪仲平"]
 
@@ -53,7 +53,7 @@ SB INTEGER
 conn.commit()
 
 # ======================
-# admin初始化
+# 初始化 admin
 # ======================
 
 cursor.execute("SELECT * FROM users WHERE 帳號='admin'")
@@ -137,7 +137,7 @@ number_default=int(login.iloc[0]["背號"])
 IS_ADMIN=login_name in ADMINS
 
 # ======================
-# ADMIN選球員
+# ADMIN 選球員
 # ======================
 
 if IS_ADMIN:
@@ -249,7 +249,13 @@ if page=="新增紀錄":
     if st.button("新增紀錄"):
 
         cursor.execute("""
-        INSERT INTO stats VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        INSERT INTO stats(
+        紀錄ID,日期,球隊,背號,姓名,對戰球隊,
+        打席,打數,得分,打點,
+        single,double,triple,HR,
+        BB,SF,SH,SB
+        )
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,(
         str(uuid.uuid4()),
         game_date.strftime("%Y-%m-%d"),
@@ -257,18 +263,9 @@ if page=="新增紀錄":
         number_default,
         player_name,
         opponent,
-        PA,
-        AB,
-        R,
-        RBI,
-        single,
-        double,
-        triple,
-        HR,
-        BB,
-        SF,
-        SH,
-        SB
+        PA,AB,R,RBI,
+        single,double,triple,HR,
+        BB,SF,SH,SB
         ))
 
         conn.commit()
@@ -298,7 +295,13 @@ if page=="單場紀錄":
         c3.metric("打點",int(row["打點"]))
         c4.metric("BB",int(row["BB"]))
 
-        if st.button("❌ 刪除",key=row["紀錄ID"]):
+        col1,col2=st.columns(2)
+
+        if col1.button("✏ 修改",key="edit"+row["紀錄ID"]):
+
+            st.session_state["edit_id"]=row["紀錄ID"]
+
+        if col2.button("❌ 刪除",key="del"+row["紀錄ID"]):
 
             cursor.execute(
             "DELETE FROM stats WHERE 紀錄ID=?",
@@ -333,7 +336,7 @@ if page=="聯盟排行榜":
 
     players["AVG"]=(players["H"]/players["打數"]).replace([float("inf")],0).round(3)
 
-    st.dataframe(players.sort_values("AVG",ascending=False))
+    st.dataframe(players.sort_values("AVG",ascending=False),use_container_width=True)
 
 # ======================
 # 帳號管理
