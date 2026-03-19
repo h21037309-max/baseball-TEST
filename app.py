@@ -229,27 +229,27 @@ if page=="新增紀錄":
     c1,c2,c3=st.columns(3)
 
     with c1:
-        PA=st.number_input("打席",0)
-        AB=st.number_input("打數",0)
-        R=st.number_input("得分",0)
-        RBI=st.number_input("打點",0)
+        PA=int(st.number_input("打席",0))
+        AB=int(st.number_input("打數",0))
+        R=int(st.number_input("得分",0))
+        RBI=int(st.number_input("打點",0))
 
     with c2:
-        single=st.number_input("1B",0)
-        double=st.number_input("2B",0)
-        triple=st.number_input("3B",0)
-        HR=st.number_input("HR",0)
+        single=int(st.number_input("1B",0))
+        double=int(st.number_input("2B",0))
+        triple=int(st.number_input("3B",0))
+        HR=int(st.number_input("HR",0))
 
     with c3:
-        BB=st.number_input("BB",0)
-        SF=st.number_input("SF",0)
-        SH=st.number_input("SH",0)
-        SB=st.number_input("SB",0)
+        BB=int(st.number_input("BB",0))
+        SF=int(st.number_input("SF",0))
+        SH=int(st.number_input("SH",0))
+        SB=int(st.number_input("SB",0))
 
     if st.button("新增紀錄"):
 
         cursor.execute("""
-        INSERT INTO stats VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        INSERT INTO stats VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,(
         str(uuid.uuid4()),
         game_date.strftime("%Y-%m-%d"),
@@ -298,9 +298,7 @@ if page=="單場紀錄":
         c3.metric("打點",int(row["打點"]))
         c4.metric("BB",int(row["BB"]))
 
-        col1,col2=st.columns(2)
-
-        if col1.button("❌ 刪除",key=row["紀錄ID"]):
+        if st.button("❌ 刪除",key=row["紀錄ID"]):
 
             cursor.execute(
             "DELETE FROM stats WHERE 紀錄ID=?",
